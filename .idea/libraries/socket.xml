@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="socket">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/AppChatFinal/lib/socket/engine.io-client-1.0.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/AppChatFinal/lib/socket/socket.io-client-1.0.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/AppChatFinal/lib/socket/json-20090211.jar!/" />
+      <root url="jar://$PROJECT_DIR$/AppChatFinal/lib/socket/okio-1.15.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/AppChatFinal/lib/socket/okhttp-3.12.12.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
