@@ -66,9 +66,12 @@ public class PublicEvent {
     }    public void addEventMenuRight(EventMenuRight event){
         this.eventMenuRight = event;
     }
-    
-    public void addEventFriendRequest(EventFriendRequest event){
-        this.eventFriendRequest = event;
+      public void addEventFriendRequest(EventFriendRequest event){
+        // Only replace if we don't have an active handler or if it's different
+        if (this.eventFriendRequest == null || this.eventFriendRequest != event) {
+            this.eventFriendRequest = event;
+            System.out.println("EventFriendRequest handler registered: " + event.getClass().getSimpleName());
+        }
     }
     
     public EventFriendRequest getEventFriendRequest(){

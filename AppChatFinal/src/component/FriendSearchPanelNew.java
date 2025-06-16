@@ -43,11 +43,15 @@ public class FriendSearchPanelNew extends JPanel implements EventFriendRequest {
     private JPanel friendRequestPanel;
     private JScrollPane searchScrollPane;
     private JScrollPane requestScrollPane;
-    private JTabbedPane tabbedPane;
-      public FriendSearchPanelNew() {
+    private JTabbedPane tabbedPane;      public FriendSearchPanelNew() {
         initComponents();
         // Register this component as the friend request event handler
         PublicEvent.getInstance().addEventFriendRequest(this);
+        
+        // Check for any pending friend request notifications
+        SwingUtilities.invokeLater(() -> {
+            Service.getInstance().checkAndProcessPendingNotifications();
+        });
     }
       private void initComponents() {
         setLayout(new BorderLayout());
@@ -416,15 +420,18 @@ public class FriendSearchPanelNew extends JPanel implements EventFriendRequest {
     // Public method to get current request count (for debugging)
     public int getCurrentRequestCount() {
         return friendRequestPanel.getComponentCount();
-    }
-    
-    // EventFriendRequest interface implementation
+    }    // EventFriendRequest interface implementation
     @Override
     public void onFriendRequestReceived() {
+        System.out.println("=== FriendSearchPanelNew.onFriendRequestReceived() CALLED ===");
+        System.out.println("Current thread: " + Thread.currentThread().getName());
+        
         SwingUtilities.invokeLater(() -> {
+            System.out.println("=== UI UPDATE FOR NEW FRIEND REQUEST ===");
             loadFriendRequests();
             // Switch to friend request tab to show new request
             tabbedPane.setSelectedIndex(1);
+            System.out.println("=== SWITCHED TO FRIEND REQUEST TAB ===");
         });
     }
     
@@ -448,11 +455,9 @@ public class FriendSearchPanelNew extends JPanel implements EventFriendRequest {
             loadFriendRequests();
         });
     }
-    
-    // Test method to manually trigger friend request loading (for debugging)
+      // Test method to manually trigger friend request loading (for debugging)
     public void testLoadFriendRequests() {
         System.out.println("=== MANUAL TEST LOAD TRIGGERED ===");
-        System.out.println("Current user: " + (Service.getInstance().getUser() != null ? Service.getInstance().getUser().getUserName() : "null"));
         System.out.println("Current panel component count: " + friendRequestPanel.getComponentCount());
         loadFriendRequests();
     }

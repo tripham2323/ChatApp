@@ -263,26 +263,40 @@ public class Service {
                     e.printStackTrace();
                 }
             }
-        });
-          // Accept friend request event handler
+        });        // Accept friend request event handler
         server.addEventListener("accept_friend_request", Object.class, new DataListener<Object>() {
             @Override
             public void onData(SocketIOClient socketClient, Object requestData, AckRequest ar) throws Exception {
                 try {
+                    System.out.println("=== SERVER RECEIVED ACCEPT_FRIEND_REQUEST ===");
+                    System.out.println("Request data: " + requestData);
+                    System.out.println("Request data class: " + requestData.getClass().getName());
+                    
                     @SuppressWarnings("unchecked")
                     java.util.Map<String, Object> data = (java.util.Map<String, Object>) requestData;
-                    int requestID = ((Number) data.get("requestID")).intValue();
+                    System.out.println("Parsed data map: " + data);
+                    
+                    Object requestIDObj = data.get("requestID");
+                    System.out.println("RequestID object: " + requestIDObj + " (class: " + requestIDObj.getClass().getName() + ")");
+                    
+                    int requestID = ((Number) requestIDObj).intValue();
+                    System.out.println("Parsed requestID: " + requestID);
                     
                     boolean success = serviceUser.acceptFriendRequest(requestID);
+                    System.out.println("AcceptFriendRequest result: " + success);
+                    
                     if (success) {
                         ar.sendAckData(true, "Friend request accepted");
                         textArea.append("Friend request accepted: Request ID " + requestID + "\n");
+                        System.out.println("Sent success response to client");
                     } else {
                         ar.sendAckData(false, "Failed to accept friend request");
+                        System.out.println("Sent failure response to client");
                     }
                 } catch (Exception e) {
-                    ar.sendAckData(false, "Error accepting friend request: " + e.getMessage());
+                    System.err.println("Exception in accept_friend_request handler:");
                     e.printStackTrace();
+                    ar.sendAckData(false, "Error accepting friend request: " + e.getMessage());
                 }
             }
         });

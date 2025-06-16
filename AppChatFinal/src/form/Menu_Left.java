@@ -117,18 +117,17 @@ public class Menu_Left extends javax.swing.JPanel {
             menuList.add(item);
         }
         refreshMenuList();
-    }
-    private void showBox() {
+    }    private void showBox() {
         // Use BoxLayout only for friend search functionality
         menuList.setLayout(new javax.swing.BoxLayout(menuList, javax.swing.BoxLayout.Y_AXIS));
         
         menuList.removeAll();
         
-        // Add friend search panel with proper constraints
-        component.FriendSearchPanelNew friendSearchPanel = new component.FriendSearchPanelNew();
-        
-        // Register with PublicEvent to receive friend request notifications
-        event.PublicEvent.getInstance().addEventFriendRequest(friendSearchPanel);
+        // Reuse existing friend search panel or create new one if not exists
+        if (friendSearchPanel == null) {
+            friendSearchPanel = new component.FriendSearchPanelNew();
+            // Event registration is already handled in the constructor of FriendSearchPanelNew
+        }
         
         menuList.add(friendSearchPanel);
         

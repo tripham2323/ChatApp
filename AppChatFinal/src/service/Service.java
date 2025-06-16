@@ -33,8 +33,7 @@ import swing.Recoder;
 
 public class Service {
 
-    private static Service instance;
-    private Socket client;
+    private static Service instance;    private Socket client;
     private final int PORT_NUMBER = 9999;
 //    private final String IP = "192.168.224.134"; //ip nối đến máy ảo 
     private final String IP = "localhost"; 
@@ -42,6 +41,7 @@ public class Service {
     private List<Model_File_Sender> fileSender;
     private ServiceFile serviceFile;
     private Recoder recoder;
+    private boolean hasPendingFriendRequestNotification = false;
 
 
     public static Service getInstance() {
@@ -150,21 +150,23 @@ public class Service {
                     Model_Package_Sender data = new Model_Package_Sender(os[0]);
                     saveFileIntoFolder(data);
                 }
-            });
-              // Event listener for friend request notifications
+            });            // Event listener for friend request notifications
             client.on("friend_request_received", new Emitter.Listener() {
                 @Override
                 public void call(Object... os) {
                     try {
+                        System.out.println("=== FRIEND REQUEST NOTIFICATION RECEIVED ===");
                         Model_User_Account senderInfo = new Model_User_Account(os[0]);
-                        System.out.println("Received friend request from: " + senderInfo.getUserName());                        // Trigger UI refresh for friend requests
+                        System.out.println("Received friend request from: " + senderInfo.getUserName());
+                        
+                        // Trigger UI refresh for friend requests with retry mechanism
                         SwingUtilities.invokeLater(() -> {
-                            if (PublicEvent.getInstance().getEventFriendRequest() != null) {
-                                PublicEvent.getInstance().getEventFriendRequest().onFriendRequestReceived();
-                            }
+                            System.out.println("=== TRIGGERING UI REFRESH FOR FRIEND REQUEST ===");
+                            triggerFriendRequestRefreshWithRetry(0);
                         });
                     } catch (Exception e) {
                         System.err.println("Error handling friend request notification: " + e.getMessage());
+                        e.printStackTrace();
                     }
                 }
             });
@@ -392,40 +394,77 @@ public class Service {
                     System.out.println("=== CLIENT RECEIVED RESPONSE ===");
                     System.out.println("Response thread: " + Thread.currentThread().getName());
                     System.out.println("Response data: " + java.util.Arrays.toString(os));
-                    System.out.println("Response length: " + os.length);
-                    
-                    if (os.length >= 1 && (Boolean) os[0]) {
+                    System.out.println("Response length: " + os.length);                        if (os.length >= 1 && (Boolean) os[0]) {
                         try {
                             List<Model_Friend_Request> requests = new ArrayList<>();
                               // Check if there's actual data (length > 1)
                             if (os.length > 1) {
-                                // Skip the first element (success boolean) and process the rest
-                                for (int i = 1; i < os.length; i++) {
-                                    Object requestData = os[i];
-                                    System.out.println("Processing request data: " + requestData);
-                                    if (requestData instanceof java.util.Map) {
-                                        try {
-                                            @SuppressWarnings("unchecked")
-                                            java.util.Map<String, Object> requestMap = (java.util.Map<String, Object>) requestData;
+                                for (int i = 1; i < os.length; i++) {                        Object requestData = os[i];
+                        System.out.println("Processing request data: " + requestData);
+                        System.out.println("Request data type: " + requestData.getClass().getName());
+                        
+                        java.util.Map<String, Object> requestMap = null;
+                        
+                        if (requestData instanceof java.util.Map) {
+                            @SuppressWarnings("unchecked")
+                            java.util.Map<String, Object> mapData = (java.util.Map<String, Object>) requestData;
+                            requestMap = mapData;
+                            System.out.println("Used Map directly");                        } else {
+                            // Handle JSONObject manually
+                            try {
+                                System.out.println("Attempting to parse as JSONObject...");
+                                // Convert JSONObject to Map manually
+                                String jsonString = requestData.toString();
+                                System.out.println("JSON String: " + jsonString);
+                                
+                                // Parse manually - this is a quick fix
+                                requestMap = new java.util.HashMap<>();
+                                
+                                // Extract values manually from JSON string (temporary solution)
+                                if (jsonString.contains("\"requestID\":")) {
+                                    int reqId = extractIntFromJson(jsonString, "requestID");
+                                    int fromId = extractIntFromJson(jsonString, "fromUserID");
+                                    int toId = extractIntFromJson(jsonString, "toUserID");
+                                    int senderId = extractIntFromJson(jsonString, "senderUserID");
+                                    String senderName = extractStringFromJson(jsonString, "senderUserName");
+                                    String senderGender = extractStringFromJson(jsonString, "senderGender");
+                                    boolean senderStatus = extractBooleanFromJson(jsonString, "senderStatus");
+                                    String createdAt = extractStringFromJson(jsonString, "createdAt");
                                     
-                                            System.out.println("Parsing request map: " + requestMap.keySet());
+                                    requestMap.put("requestID", reqId);
+                                    requestMap.put("fromUserID", fromId);
+                                    requestMap.put("toUserID", toId);
+                                    requestMap.put("senderUserID", senderId);
+                                    requestMap.put("senderUserName", senderName);
+                                    requestMap.put("senderGender", senderGender);
+                                    requestMap.put("senderStatus", senderStatus);
+                                    requestMap.put("createdAt", createdAt);
+                                    requestMap.put("status", "pending");
+                                    requestMap.put("senderImage", new byte[0]); // Empty for now
                                     
+                                    System.out.println("Manual JSON parsing successful");
+                                }
+                            } catch (Exception e) {
+                                System.err.println("Failed to parse JSONObject manually: " + e.getMessage());
+                                e.printStackTrace();
+                            }
+                        }
+                        
+                        if (requestMap != null) {
+                            try {
+                                System.out.println("Parsing request map: " + requestMap.keySet());
                                             // Create Model_Friend_Request from map data
                                             Model_Friend_Request request = new Model_Friend_Request();
                                             request.setRequestID(((Number) requestMap.get("requestID")).intValue());
                                             request.setFromUserID(((Number) requestMap.get("fromUserID")).intValue());
                                             request.setToUserID(((Number) requestMap.get("toUserID")).intValue());
                                             request.setStatus((String) requestMap.get("status"));
-                                            
                                             System.out.println("Basic request data set successfully");
-                                            
                                             // Create sender info using the constructor with parameters
                                             int senderUserID = ((Number) requestMap.get("senderUserID")).intValue();
                                             String senderUserName = (String) requestMap.get("senderUserName");
                                             String senderGender = (String) requestMap.get("senderGender");
-                                            
                                             System.out.println("Sender info: " + senderUserName + " (ID: " + senderUserID + ")");
-                                    
                                             // Handle senderImage - it might come as List<Integer> from Socket.IO
                                             byte[] senderImage = null;
                                             Object imageData = requestMap.get("senderImage");
@@ -446,16 +485,12 @@ public class Service {
                                                     System.out.println("Unknown image data type: " + imageData.getClass());
                                                 }
                                             }
-                                    
                                             Boolean senderStatus = (Boolean) requestMap.get("senderStatus");
                                             System.out.println("Creating Model_User_Account...");
-                                    
                                             Model_User_Account senderInfo = new Model_User_Account(
                                                 senderUserID, senderUserName, senderGender, senderImage, senderStatus
                                             );
-                                            
                                             System.out.println("Model_User_Account created successfully");
-                                      
                                             request.setSenderInfo(senderInfo);
                                             requests.add(request);
                                             System.out.println("Added friend request from: " + senderUserName + " (ID: " + request.getRequestID() + ")");
@@ -463,8 +498,13 @@ public class Service {
                                             System.err.println("Error parsing individual request: " + e.getMessage());
                                             e.printStackTrace();
                                         }
+                                    } else {
+                                        System.out.println("Request data is not a Map: " + requestData.getClass());
                                     }
-                                }                            }
+                                }
+                            } else {
+                                System.out.println("No request data found in response");
+                            }
                             
                             System.out.println("=== PARSING COMPLETED ===");
                             System.out.println("Total friend requests parsed: " + requests.size());
@@ -508,11 +548,77 @@ public class Service {
         } catch (Exception e) {
             callback.onError("Error getting friend requests: " + e.getMessage());
         }
-    }
-      // Interface for getting friend requests with results
+    }      // Interface for getting friend requests with results
     public interface FriendRequestListCallback {
         void onResult(List<Model_Friend_Request> requests);
         void onError(String error);
+    }
+      // Method to trigger friend request refresh with retry mechanism
+    private void triggerFriendRequestRefreshWithRetry(int retryCount) {
+        if (PublicEvent.getInstance().getEventFriendRequest() != null) {
+            System.out.println("Event handler found, calling onFriendRequestReceived()");
+            PublicEvent.getInstance().getEventFriendRequest().onFriendRequestReceived();
+        } else {
+            System.err.println("No EventFriendRequest handler registered, retry attempt: " + (retryCount + 1));
+            if (retryCount < 20) { // Retry up to 20 times (10 seconds total)
+                // Wait 500ms and retry
+                javax.swing.Timer timer = new javax.swing.Timer(500, e -> {
+                    triggerFriendRequestRefreshWithRetry(retryCount + 1);
+                });
+                timer.setRepeats(false);
+                timer.start();            } else {
+                System.err.println("ERROR: EventFriendRequest handler not found after 20 retries!");
+                System.err.println("Will try to manually trigger refresh when handler becomes available...");
+                // Store notification for later processing
+                hasPendingFriendRequestNotification = true;
+            }
+        }    }
+    
+    // Helper methods for manual JSON parsing
+    private int extractIntFromJson(String json, String key) {
+        try {
+            String pattern = "\"" + key + "\":";
+            int start = json.indexOf(pattern) + pattern.length();
+            int end = json.indexOf(",", start);
+            if (end == -1) end = json.indexOf("}", start);
+            String value = json.substring(start, end).trim();
+            return Integer.parseInt(value);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+    
+    private String extractStringFromJson(String json, String key) {
+        try {
+            String pattern = "\"" + key + "\":\"";
+            int start = json.indexOf(pattern) + pattern.length();
+            int end = json.indexOf("\"", start);
+            return json.substring(start, end);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+    
+    private boolean extractBooleanFromJson(String json, String key) {
+        try {
+            String pattern = "\"" + key + "\":";
+            int start = json.indexOf(pattern) + pattern.length();
+            int end = json.indexOf(",", start);
+            if (end == -1) end = json.indexOf("}", start);
+            String value = json.substring(start, end).trim();
+            return Boolean.parseBoolean(value);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    // Method to check and process pending friend request notifications
+    public void checkAndProcessPendingNotifications() {
+        if (hasPendingFriendRequestNotification && PublicEvent.getInstance().getEventFriendRequest() != null) {
+            System.out.println("=== PROCESSING PENDING FRIEND REQUEST NOTIFICATION ===");
+            hasPendingFriendRequestNotification = false;
+            PublicEvent.getInstance().getEventFriendRequest().onFriendRequestReceived();
+        }
     }
     
     private void error(Exception e) {

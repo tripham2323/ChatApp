@@ -6,7 +6,6 @@ package service;
 
 import java.sql.PreparedStatement;
 import connection.DatabaseConnection;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -17,7 +16,6 @@ import java.sql.SQLException;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
-import javax.imageio.ImageIO;
 import model.Model_Client;
 import model.Model_Login;
 import model.Model_Message;
@@ -39,13 +37,9 @@ public class ServiceUser {
     // Search users by username
     private final String SEARCH_USERS = "select UserID, UserName, Gender, Image from user_account where user_account.`Status`='1' and UserName LIKE ? LIMIT 10";
     // Friend request queries
-    private final String INSERT_FRIEND_REQUEST = "insert into friend_requests (fromUserID, toUserID, status, created_at) values (?,?,'pending',NOW())";
-    private final String CHECK_EXISTING_REQUEST = "select id from friend_requests where fromUserID=? and toUserID=? and status='pending'";
-    private final String CHECK_EXISTING_FRIENDSHIP = "select id from friendships where (user1ID=? and user2ID=?) or (user1ID=? and user2ID=?)";
-    private final String UPDATE_FRIEND_REQUEST_STATUS = "update friend_requests set status=? where id=?";
-    private final String INSERT_FRIENDSHIP = "insert into friendships (user1ID, user2ID, created_at) values (?,?,NOW())";
-    private final String GET_PENDING_FRIEND_REQUESTS = "select fr.id, fr.fromUserID, ua.UserName, ua.Gender, ua.Image, fr.created_at from friend_requests fr join user_account ua on fr.fromUserID = ua.UserID where fr.toUserID=? and fr.status='pending' order by fr.created_at desc";
-    private final String GET_FRIEND_REQUEST_BY_ID = "select fromUserID, toUserID from friend_requests where id=? and status='pending'";
+    private final String INSERT_FRIEND_REQUEST = "insert into friend_requests (fromUserID, toUserID, status, created_at) values (?,?,'pending',NOW())";    private final String CHECK_EXISTING_REQUEST = "select id from friend_requests where fromUserID=? and toUserID=? and status='pending'";
+    private final String CHECK_FRIENDSHIP_EXISTS = "select id from friendships where (user1ID=? and user2ID=?) or (user1ID=? and user2ID=?)";
+    private final String UPDATE_FRIEND_REQUEST_STATUS = "update friend_requests set status=? where id=?";    private final String GET_PENDING_FRIEND_REQUESTS = "select fr.id, fr.fromUserID, ua.UserName, ua.Gender, ua.Image, fr.created_at from friend_requests fr join user_account ua on fr.fromUserID = ua.UserID where fr.toUserID=? and fr.status='pending' order by fr.created_at desc";
     //khởi tạo connect sql
     private final Connection con;
     public ServiceUser() {
@@ -243,11 +237,10 @@ public boolean sendFriendRequest(int fromUserID, int toUserID) throws SQLExcepti
         if (rs != null) rs.close();
         if (checkRequest != null) checkRequest.close();
     }
-    
-    // Kiểm tra xem đã là bạn bè chưa
+      // Kiểm tra xem đã là bạn bè chưa
     PreparedStatement checkFriendship = null;
     try {
-        checkFriendship = con.prepareStatement(CHECK_EXISTING_FRIENDSHIP);
+        checkFriendship = con.prepareStatement(CHECK_FRIENDSHIP_EXISTS);
         checkFriendship.setInt(1, Math.min(fromUserID, toUserID));
         checkFriendship.setInt(2, Math.max(fromUserID, toUserID));
         checkFriendship.setInt(3, Math.min(fromUserID, toUserID));
@@ -283,57 +276,52 @@ public boolean sendFriendRequest(int fromUserID, int toUserID) throws SQLExcepti
     }
 }
 
-// Accept friend request method
+// Accept friend request method - let database trigger handle friendship creation
 public boolean acceptFriendRequest(int requestID) throws SQLException {
-    PreparedStatement getRequest = null;
     PreparedStatement updateRequest = null;
-    PreparedStatement insertFriendship = null;
-    ResultSet rs = null;
     
     try {
-        con.setAutoCommit(false);
+        System.out.println("=== ACCEPTING FRIEND REQUEST ===");
+        System.out.println("Request ID: " + requestID);
         
-        // Get the request details
-        getRequest = con.prepareStatement(GET_FRIEND_REQUEST_BY_ID);
-        getRequest.setInt(1, requestID);
-        rs = getRequest.executeQuery();
-        
-        if (!rs.next()) {
-            System.out.println("Friend request not found with ID: " + requestID);
-            con.rollback();
-            return false;
-        }
-        
-        int fromUserID = rs.getInt("fromUserID");
-        int toUserID = rs.getInt("toUserID");
-        rs.close();
-        
-        // Update request status to accepted
+        // Simply update the request status - database trigger will handle friendship creation
         updateRequest = con.prepareStatement(UPDATE_FRIEND_REQUEST_STATUS);
         updateRequest.setString(1, "accepted");
         updateRequest.setInt(2, requestID);
-        updateRequest.executeUpdate();
         
-        // Create friendship entry
-        insertFriendship = con.prepareStatement(INSERT_FRIENDSHIP);
-        insertFriendship.setInt(1, Math.min(fromUserID, toUserID));
-        insertFriendship.setInt(2, Math.max(fromUserID, toUserID));
-        insertFriendship.executeUpdate();
+        System.out.println("Executing SQL: " + UPDATE_FRIEND_REQUEST_STATUS);
+        System.out.println("Parameters: status='accepted', requestID=" + requestID);
         
-        con.commit();
-        System.out.println("Friend request accepted successfully. Users " + fromUserID + " and " + toUserID + " are now friends.");
-        return true;
+        int rowsUpdated = updateRequest.executeUpdate();
+        System.out.println("Rows updated: " + rowsUpdated);
+        
+        if (rowsUpdated > 0) {
+            System.out.println("Friend request accepted successfully. Request ID: " + requestID);
+            System.out.println("Database trigger will automatically create the friendship entry.");
+            return true;
+        } else {
+            System.out.println("ERROR: No friend request found to update with ID: " + requestID);
+            return false;
+        }
         
     } catch (SQLException e) {
-        con.rollback();
-        System.err.println("Error accepting friend request: " + e.getMessage());
-        throw e;
+        System.err.println("SQLException in acceptFriendRequest:");
+        System.err.println("Error code: " + e.getErrorCode());
+        System.err.println("SQL state: " + e.getSQLState());
+        System.err.println("Message: " + e.getMessage());
+        e.printStackTrace();
+        return false;
+    } catch (Exception e) {
+        System.err.println("General Exception in acceptFriendRequest:");
+        System.err.println("Message: " + e.getMessage());
+        e.printStackTrace();
+        return false;
     } finally {
-        con.setAutoCommit(true);
-        if (rs != null) rs.close();
-        if (getRequest != null) getRequest.close();
-        if (updateRequest != null) updateRequest.close();
-        if (insertFriendship != null) insertFriendship.close();
+        try {
+            if (updateRequest != null) updateRequest.close();
+        } catch (SQLException e) {
+            System.err.println("Error closing PreparedStatement: " + e.getMessage());
+        }
     }
 }
 
