@@ -434,15 +434,18 @@ public class Service {
                                     requestMap.put("requestID", reqId);
                                     requestMap.put("fromUserID", fromId);
                                     requestMap.put("toUserID", toId);
-                                    requestMap.put("senderUserID", senderId);
-                                    requestMap.put("senderUserName", senderName);
+                                    requestMap.put("senderUserID", senderId);                                    requestMap.put("senderUserName", senderName);
                                     requestMap.put("senderGender", senderGender);
                                     requestMap.put("senderStatus", senderStatus);
                                     requestMap.put("createdAt", createdAt);
                                     requestMap.put("status", "pending");
-                                    requestMap.put("senderImage", new byte[0]); // Empty for now
                                     
-                                    System.out.println("Manual JSON parsing successful");
+                                    // Extract image data from JSON string
+                                    byte[] senderImage = extractImageFromJson(jsonString, "senderImage");
+                                    requestMap.put("senderImage", senderImage);
+                                    
+                                    System.out.println("Manual JSON parsing successful with image data: " + 
+                                                     (senderImage != null ? senderImage.length : 0) + " bytes");
                                 }
                             } catch (Exception e) {
                                 System.err.println("Failed to parse JSONObject manually: " + e.getMessage());
@@ -609,6 +612,45 @@ public class Service {
             return Boolean.parseBoolean(value);
         } catch (Exception e) {
             return false;
+        }    }
+    
+    private byte[] extractImageFromJson(String json, String key) {
+        try {
+            String pattern = "\"" + key + "\":[";
+            int start = json.indexOf(pattern);
+            if (start == -1) {
+                System.out.println("Image key not found in JSON");
+                return new byte[0];
+            }
+            
+            start += pattern.length();
+            int end = json.indexOf("]", start);
+            if (end == -1) {
+                System.out.println("Image array end not found in JSON");
+                return new byte[0];
+            }
+            
+            String arrayContent = json.substring(start, end);
+            if (arrayContent.trim().isEmpty()) {
+                System.out.println("Image array is empty");
+                return new byte[0];
+            }
+            
+            // Parse comma-separated integer values
+            String[] values = arrayContent.split(",");
+            byte[] imageBytes = new byte[values.length];
+            
+            for (int i = 0; i < values.length; i++) {
+                String value = values[i].trim();
+                imageBytes[i] = (byte) Integer.parseInt(value);
+            }
+            
+            System.out.println("Extracted image data: " + imageBytes.length + " bytes");
+            return imageBytes;
+            
+        } catch (Exception e) {
+            System.err.println("Error extracting image from JSON: " + e.getMessage());
+            return new byte[0];
         }
     }
     

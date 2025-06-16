@@ -336,12 +336,16 @@ public class Service {
                         requestMap.put("fromUserID", request.getFromUserID());
                         requestMap.put("toUserID", request.getToUserID());
                         requestMap.put("status", request.getStatus());
-                        requestMap.put("createdAt", request.getCreatedAt().toString());
-                          // Include sender info
+                        requestMap.put("createdAt", request.getCreatedAt().toString());                        // Include sender info
                         Model_User_Account senderInfo = request.getSenderInfo();
                         requestMap.put("senderUserID", senderInfo.getUserID());
                         requestMap.put("senderUserName", senderInfo.getUserName());
                         requestMap.put("senderGender", senderInfo.getGender());
+                        
+                        // Debug image data
+                        byte[] imageData = senderInfo.getImage();
+                        System.out.println("Sending image data for user " + senderInfo.getUserName() + 
+                                         ": " + (imageData != null ? imageData.length : "null") + " bytes");
                         requestMap.put("senderImage", senderInfo.getImage());
                         requestMap.put("senderStatus", senderInfo.getStatus());
                           requestsData.add(requestMap);
