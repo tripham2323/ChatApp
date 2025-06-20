@@ -244,12 +244,17 @@ public class Service {
                                 // Use reflection to handle JSONArray
                                 Object jsonArray = os[1];
                                 int length = (Integer) jsonArray.getClass().getMethod("length").invoke(jsonArray);
-                                System.out.println("Số lượng kết quả: " + length);
-
-                                for (int i = 0; i < length; i++) {
+                                System.out.println("Số lượng kết quả: " + length);                                for (int i = 0; i < length; i++) {
                                     try {
                                         Object userObj = jsonArray.getClass().getMethod("get", int.class).invoke(jsonArray, i);
                                         Model_User_Account user = new Model_User_Account(userObj);
+                                        
+                                        // Skip current user from search results
+                                        if (Service.this.user != null && user.getUserID() == Service.this.user.getUserID()) {
+                                            System.out.println("Bỏ qua người dùng hiện tại: " + user.getUserName());
+                                            continue;
+                                        }
+                                        
                                         System.out.println("Đã tìm thấy người dùng: " + user.getUserName());
                                         users.add(user);
                                     } catch (Exception e) {
@@ -260,10 +265,16 @@ public class Service {
                             } else if (os[1] instanceof Object[]) {
                                 // Handle Object[] case (fallback)
                                 Object[] results = (Object[]) os[1];
-                                System.out.println("Số lượng kết quả (Object[]): " + results.length);
-                                for (Object o : results) {
+                                System.out.println("Số lượng kết quả (Object[]): " + results.length);                                for (Object o : results) {
                                     try {
                                         Model_User_Account user = new Model_User_Account(o);
+                                        
+                                        // Skip current user from search results
+                                        if (Service.this.user != null && user.getUserID() == Service.this.user.getUserID()) {
+                                            System.out.println("Bỏ qua người dùng hiện tại: " + user.getUserName());
+                                            continue;
+                                        }
+                                        
                                         System.out.println("Đã tìm thấy người dùng: " + user.getUserName());
                                         users.add(user);
                                     } catch (Exception e) {
