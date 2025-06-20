@@ -663,6 +663,192 @@ public class Service {
         }
     }
     
+    // Method to get friends list
+    public void getFriendsList(FriendsListCallback callback) {
+        try {
+            if (user == null) {
+                System.err.println("ERROR: User is null when calling getFriendsList!");
+                callback.onError("User not logged in");
+                return;
+            }
+            
+            System.out.println("=== CLIENT REQUESTING FRIENDS LIST ===");
+            System.out.println("Client requesting friends list for UserID: " + user.getUserID());
+            
+            client.emit("get_friends_list", user.getUserID(), new Ack() {
+                @Override
+                public void call(Object... os) {
+                    System.out.println("=== CLIENT RECEIVED FRIENDS LIST RESPONSE ===");
+                    System.out.println("Response data: " + java.util.Arrays.toString(os));
+                    System.out.println("Response length: " + os.length);
+                    
+                    if (os.length >= 1 && (Boolean) os[0]) {
+                        try {
+                            List<Model_User_Account> friends = new ArrayList<>();
+                              // Check if there's actual data (length > 1)
+                            if (os.length > 1) {
+                                for (int i = 1; i < os.length; i++) {
+                                    Object friendData = os[i];
+                                    System.out.println("Processing friend data: " + friendData);
+                                    System.out.println("Friend data type: " + friendData.getClass().getName());
+                                    
+                                    Model_User_Account friend = null;
+                                      // Try parsing as different data types
+                                    if (friendData instanceof java.util.Map) {
+                                        System.out.println("Parsing as Map");
+                                        @SuppressWarnings("unchecked")
+                                        java.util.Map<String, Object> friendMap = (java.util.Map<String, Object>) friendData;
+                                        friend = parseUserFromMap(friendMap);                                    } else if (friendData instanceof JSONObject) {
+                                        System.out.println("Parsing as JSONObject");
+                                        JSONObject jsonObj = (JSONObject) friendData;
+                                        friend = parseUserFromJSONObject(jsonObj);
+                                    } else {
+                                        System.out.println("Data is not a Map or JSONObject, trying to debug its structure");
+                                        System.out.println("Friend data toString: " + friendData.toString());
+                                        System.out.println("Friend data class: " + friendData.getClass().getName());
+                                        
+                                        // Skip this friend since we can't parse it
+                                        System.out.println("Skipping this friend data");  
+                                        continue;
+                                    }
+                                    
+                                    if (friend != null) {
+                                        friends.add(friend);
+                                        System.out.println("Added friend: " + friend.getUserName() + " (ID: " + friend.getUserID() + ")");
+                                    }
+                                }
+                            }
+                            
+                            System.out.println("=== CALLING CALLBACK.ONRESULT ===");
+                            System.out.println("About to call callback.onResult with " + friends.size() + " friends");
+                            callback.onResult(friends);
+                            System.out.println("=== CALLBACK.ONRESULT COMPLETED ===");
+                        } catch (Exception e) {
+                            System.err.println("Error parsing friends list: " + e.getMessage());
+                            e.printStackTrace();
+                            callback.onError("Error parsing friends list: " + e.getMessage());
+                        }
+                    } else {
+                        System.out.println("=== SERVER RETURNED FALSE OR NO DATA ===");
+                        if (os.length > 0 && !(Boolean) os[0]) {
+                            String errorMsg = os.length > 1 ? (String) os[1] : "Failed to get friends list";
+                            System.out.println("Server returned false, calling callback.onError: " + errorMsg);
+                            callback.onError(errorMsg);
+                        } else {
+                            System.out.println("No friends found, calling callback.onResult with empty list");
+                            callback.onResult(new ArrayList<>());
+                        }
+                    }
+                }
+            });
+        } catch (Exception e) {
+            callback.onError("Error getting friends list: " + e.getMessage());
+        }
+    }
+
+    // Interface for getting friends list with results
+    public interface FriendsListCallback {
+        void onResult(List<Model_User_Account> friends);
+        void onError(String error);
+    }
+
+    // Helper method to parse user from Map
+    private Model_User_Account parseUserFromMap(java.util.Map<String, Object> friendMap) {
+        try {
+            Model_User_Account friend = new Model_User_Account();
+            friend.setUserID(((Number) friendMap.get("userID")).intValue());
+            friend.setUserName((String) friendMap.get("userName"));
+            friend.setGender((String) friendMap.get("gender"));
+            friend.setStatus((Boolean) friendMap.get("status"));
+            
+            // Handle image data
+            Object imageData = friendMap.get("image");
+            if (imageData != null) {
+                if (imageData instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Number> imageList = (List<Number>) imageData;
+                    byte[] friendImage = new byte[imageList.size()];
+                    for (int j = 0; j < imageList.size(); j++) {
+                        friendImage[j] = imageList.get(j).byteValue();
+                    }
+                    friend.setImage(friendImage);
+                } else if (imageData instanceof byte[]) {
+                    friend.setImage((byte[]) imageData);
+                }
+            } else {
+                friend.setImage(new byte[0]);
+            }
+            
+            return friend;
+        } catch (Exception e) {
+            System.err.println("Error parsing user from Map: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }    // Helper method to parse user from JSONObject
+    private Model_User_Account parseUserFromJSONObject(JSONObject jsonObj) {
+        try {
+            Model_User_Account friend = new Model_User_Account();
+            friend.setUserID(jsonObj.getInt("userID"));
+            friend.setUserName(jsonObj.getString("userName"));
+            friend.setGender(jsonObj.optString("gender", ""));
+            friend.setStatus(jsonObj.optBoolean("status", false));
+            
+            // Handle image data
+            if (jsonObj.has("image") && !jsonObj.isNull("image")) {
+                Object imageData = jsonObj.get("image");                System.out.println("Image data type: " + imageData.getClass().getName());
+                String imageClassName = imageData.getClass().getName();
+                
+                if (imageClassName.equals("[B")) {
+                    // Image data is already a byte array
+                    System.out.println("Image data is already byte array");
+                    byte[] friendImage = (byte[]) imageData;
+                    friend.setImage(friendImage);
+                    System.out.println("Successfully set image, size: " + friendImage.length);
+                } else if (imageClassName.equals("org.json.JSONArray")) {
+                    System.out.println("Converting JSONArray to byte array");
+                    try {
+                        Object jsonArray = imageData;
+                        // Use reflection to get length and values
+                        int length = (Integer) jsonArray.getClass().getMethod("length").invoke(jsonArray);
+                        byte[] friendImage = new byte[length];
+                        for (int j = 0; j < length; j++) {
+                            Object value = jsonArray.getClass().getMethod("get", int.class).invoke(jsonArray, j);
+                            friendImage[j] = ((Number) value).byteValue();
+                        }
+                        friend.setImage(friendImage);
+                        System.out.println("Successfully converted image, size: " + friendImage.length);
+                    } catch (Exception ex) {
+                        System.err.println("Error converting JSONArray: " + ex.getMessage());
+                        friend.setImage(new byte[0]);
+                    }
+                } else if (imageData instanceof java.util.List) {
+                    System.out.println("Converting List to byte array");
+                    @SuppressWarnings("unchecked")
+                    java.util.List<Number> imageList = (java.util.List<Number>) imageData;
+                    byte[] friendImage = new byte[imageList.size()];
+                    for (int j = 0; j < imageList.size(); j++) {
+                        friendImage[j] = imageList.get(j).byteValue();
+                    }
+                    friend.setImage(friendImage);
+                    System.out.println("Successfully converted image from List, size: " + friendImage.length);
+                } else {
+                    System.out.println("Unknown image data type: " + imageClassName + ", setting empty byte array");
+                    friend.setImage(new byte[0]);
+                }
+            } else {
+                System.out.println("No image data found, setting empty byte array");
+                friend.setImage(new byte[0]);
+            }
+            
+            return friend;
+        } catch (Exception e) {
+            System.err.println("Error parsing user from JSONObject: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     private void error(Exception e) {
         System.err.println(e);
     }

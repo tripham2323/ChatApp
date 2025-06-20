@@ -19,6 +19,7 @@ import swing.ScrollBar;
  */
 public class Menu_Left extends javax.swing.JPanel {
     private List<Model_User_Account> userAccount;
+    private List<Model_User_Account> friendsList; // Danh sách bạn bè
     private component.FriendSearchPanelNew friendSearchPanel;
     /**
      * Creates new form Menu_Left
@@ -26,26 +27,56 @@ public class Menu_Left extends javax.swing.JPanel {
     public Menu_Left() {
         initComponents();
         init();
-    }
-    private void init(){
+    }    private void init(){
            sp.setVerticalScrollBar(new ScrollBar()); //set cuộn page
         userAccount = new ArrayList<>();// list của all info client khác với clien đăng nhập hiện tại
-        PublicEvent.getInstance().addEventMenuLeft(new EventMenuLeft() {
-               @Override
+        friendsList = new ArrayList<>();// list của bạn bè
+        PublicEvent.getInstance().addEventMenuLeft(new EventMenuLeft() {               @Override
                public void newUser(List<Model_User_Account> users) {// all list info client khác với clien đăng nhập hiện tại
+                   System.out.println("=== NEW USER EVENT - Received " + users.size() + " users ===");
                    for (Model_User_Account d:users){//duyệt từng element của mảng users cho biến d
                        userAccount.add(d);
-                       Item_people item = new Item_people(d);
-                       // Set fixed height for each item to prevent excessive height
-                       item.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 60));
-                       item.setPreferredSize(new java.awt.Dimension(200, 60));
-                       menuList.add(item);
-                       refreshMenuList();
+                       
+                       // Chỉ add vào UI nếu không phải đang ở tab Message (vì Message chỉ show bạn bè)
+                       if(!menuMessage.isSelected()) {
+                           Item_people item = new Item_people(d);
+                           // Set fixed height for each item to prevent excessive height
+                           item.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 60));
+                           item.setPreferredSize(new java.awt.Dimension(200, 60));
+                           menuList.add(item);
+                       }
                     }
-                  }
-
-               @Override
+                   // Chỉ refresh nếu không phải tab Message
+                   if(!menuMessage.isSelected()) {
+                       refreshMenuList();
+                   }
+                   
+                   // Nếu đang ở tab Message, load friends list sau khi user data đã sẵn sàng
+                   if(menuMessage.isSelected()) {
+                       System.out.println("Message tab is selected, reloading friends list...");
+                       javax.swing.Timer delayTimer = new javax.swing.Timer(1000, new java.awt.event.ActionListener() {
+                           @Override
+                           public void actionPerformed(java.awt.event.ActionEvent e) {
+                               loadFriendsListWithRetry(0);
+                           }
+                       });
+                       delayTimer.setRepeats(false);
+                       delayTimer.start();
+                   }
+                   
+                   System.out.println("=== NEW USER EVENT COMPLETED ===");
+                  }@Override
                public void userConnect(Model_User_Account user) {
+                   // Cập nhật danh sách bạn bè nếu có
+                   if(friendsList != null){
+                       for(Model_User_Account u:friendsList){
+                           if(u.getUserID() == user.getUserID()){
+                              u.setStatus(true);
+                              break;
+                           }
+                       }
+                   }
+                   // Cập nhật danh sách tất cả user
                    for(Model_User_Account u:userAccount){
                        if(u.getUserID() == user.getUserID()){
                           u.setStatus(true);
@@ -55,19 +86,28 @@ public class Menu_Left extends javax.swing.JPanel {
                    }
                    if(menuMessage.isSelected()){
                        for(Component com:menuList.getComponents()){
-                            Item_people item = (Item_people)com;
-                            if(item.getUser().getUserID() == user.getUserID()){
-                                item.updateStatus();
-                                
-                                break;
-                            
+                            // Chỉ cast nếu component là Item_people
+                            if(com instanceof Item_people){
+                                Item_people item = (Item_people)com;
+                                if(item.getUser().getUserID() == user.getUserID()){
+                                    item.updateStatus();
+                                    break;
+                                }
                             }
                        } 
                     }
-                  }
-
-               @Override
+                  }               @Override
                public void userDisconnect(int userID) {
+                   // Cập nhật danh sách bạn bè nếu có
+                   if(friendsList != null){
+                       for(Model_User_Account u:friendsList){
+                           if(u.getUserID() == userID){
+                              u.setStatus(false);
+                              break;
+                           }
+                       }
+                   }
+                   // Cập nhật danh sách tất cả user
                    for(Model_User_Account u:userAccount){
                        if(u.getUserID() == userID){
                           u.setStatus(false);
@@ -77,11 +117,13 @@ public class Menu_Left extends javax.swing.JPanel {
                    }
                    if(menuMessage.isSelected()){
                        for(Component com:menuList.getComponents()){
-                            Item_people item = (Item_people)com;
-                            if(item.getUser().getUserID() == userID){
-                                item.updateStatus();
-                                break;
-                            
+                            // Chỉ cast nếu component là Item_people
+                            if(com instanceof Item_people){
+                                Item_people item = (Item_people)com;
+                                if(item.getUser().getUserID() == userID){
+                                    item.updateStatus();
+                                    break;
+                                }
                             }
                        } 
                     }
@@ -89,19 +131,157 @@ public class Menu_Left extends javax.swing.JPanel {
                
            });
        showMessage();
-    }
-    private void showMessage() {
+    }    private void showMessage() {
+        System.out.println("=== SHOW MESSAGE CALLED - SHOWING FRIENDS ONLY ===");
         // Use BoxLayout for proper vertical stacking of message items, like the original
         menuList.setLayout(new javax.swing.BoxLayout(menuList, javax.swing.BoxLayout.Y_AXIS));
         
         menuList.removeAll();
-        for (Model_User_Account d:userAccount) {
-            Item_people item = new Item_people(d);
-            // Set fixed height for each item to prevent excessive height
-            item.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 60));
-            item.setPreferredSize(new java.awt.Dimension(200, 60));
-            menuList.add(item); //thêm list user onl trong menulistleft
+        
+        // Show loading message first
+        javax.swing.JLabel loadingLabel = new javax.swing.JLabel("Đang tải danh sách bạn bè...");
+        loadingLabel.setFont(new java.awt.Font("JetBrains Mono", 0, 12));
+        loadingLabel.setHorizontalAlignment(javax.swing.JLabel.CENTER);
+        menuList.add(loadingLabel);
+        refreshMenuList();
+        
+        // Schedule friends list loading after a delay to ensure user is ready
+        javax.swing.Timer loadTimer = new javax.swing.Timer(2000, new java.awt.event.ActionListener() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                loadFriendsListWithRetry(0);
+            }
+        });
+        loadTimer.setRepeats(false);
+        loadTimer.start();
+    }
+    
+    private void loadFriendsListWithRetry(int attemptCount) {
+        if (attemptCount == 0) {
+            // Show loading message on first attempt
+            javax.swing.JLabel loadingLabel = new javax.swing.JLabel("Đang tải danh sách bạn bè...");
+            loadingLabel.setFont(new java.awt.Font("JetBrains Mono", 0, 12));
+            loadingLabel.setHorizontalAlignment(javax.swing.JLabel.CENTER);
+            menuList.add(loadingLabel);
+            refreshMenuList();
         }
+          try {
+            // Get Service instance
+            System.out.println("=== DEBUG: Getting Service class ===");
+            Object serviceObj = Class.forName("service.Service").getMethod("getInstance").invoke(null);
+            System.out.println("Service instance: " + serviceObj);
+            
+            // Check if user is available using reflection to avoid import issues
+            System.out.println("=== DEBUG: Getting user from Service ===");
+            Object user = serviceObj.getClass().getMethod("getUser").invoke(serviceObj);
+            System.out.println("User object: " + user);
+            
+            if (user == null && attemptCount < 10) {
+                // User not ready yet, retry after delay                System.out.println("User not ready, retrying in 500ms... (attempt " + (attemptCount + 1) + ")");
+                javax.swing.Timer timer = new javax.swing.Timer(500, new java.awt.event.ActionListener() {
+                    @Override
+                    public void actionPerformed(java.awt.event.ActionEvent e) {
+                        loadFriendsListWithRetry(attemptCount + 1);
+                    }
+                });
+                timer.setRepeats(false);
+                timer.start();
+                return;
+            }
+            
+            if (user == null) {
+                // After 10 attempts, show error
+                System.err.println("User still not available after 10 attempts");
+                showNoFriendsMessage("Vui lòng đăng nhập lại");
+                return;
+            }
+            
+            System.out.println("User found, loading friends list...");
+            
+            // Get user ID using reflection
+            int userID = (Integer) user.getClass().getMethod("getUserID").invoke(user);
+            System.out.println("Loading friends for user ID: " + userID);
+            
+            // Call getFriendsList using reflection
+            System.out.println("=== DEBUG: Creating callback ===");
+            Class<?> callbackClass = Class.forName("service.Service$FriendsListCallback");
+            Object callback = java.lang.reflect.Proxy.newProxyInstance(
+                callbackClass.getClassLoader(),
+                new Class[]{callbackClass},
+                new java.lang.reflect.InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+                        if ("onResult".equals(method.getName())) {
+                            @SuppressWarnings("unchecked")
+                            List<Model_User_Account> friends = (List<Model_User_Account>) args[0];
+                            handleFriendsListResult(friends);
+                        } else if ("onError".equals(method.getName())) {
+                            String error = (String) args[0];
+                            handleFriendsListError(error);
+                        }
+                        return null;
+                    }
+                });
+            
+            serviceObj.getClass().getMethod("getFriendsList", callbackClass).invoke(serviceObj, callback);
+            
+        } catch (Exception e) {
+            System.err.println("Error loading friends list: " + e.getMessage());
+            e.printStackTrace();
+            showNoFriendsMessage("Lỗi kết nối");
+        }
+    }
+    
+    private void handleFriendsListResult(List<Model_User_Account> friends) {
+        System.out.println("=== FRIENDS LIST RECEIVED ===");
+        System.out.println("Number of friends: " + friends.size());
+        
+        // Lưu danh sách bạn bè
+        friendsList = friends;
+        
+        // Ensure UI update happens on EDT
+        javax.swing.SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("Updating UI with friends list...");
+                menuList.removeAll();
+                if (friends.isEmpty()) {
+                    showNoFriendsMessage("Chưa có bạn bè nào");
+                } else {
+                    for (Model_User_Account friend : friends) {
+                        System.out.println("Adding friend: " + friend.getUserName());
+                        Item_people item = new Item_people(friend);
+                        // Set fixed height for each item to prevent excessive height
+                        item.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 60));
+                        item.setPreferredSize(new java.awt.Dimension(200, 60));
+                        menuList.add(item);
+                    }
+                    System.out.println("All friends added to UI");
+                }
+                refreshMenuList();
+                System.out.println("UI refresh completed");
+            }
+        });
+    }
+    
+    private void handleFriendsListError(String error) {
+        System.err.println("=== ERROR LOADING FRIENDS LIST ===");
+        System.err.println("Error: " + error);
+        
+        javax.swing.SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                showNoFriendsMessage("Lỗi: " + error);
+            }
+        });
+    }
+    
+    private void showNoFriendsMessage(String message) {
+        menuList.removeAll();
+        javax.swing.JLabel messageLabel = new javax.swing.JLabel(message);
+        messageLabel.setFont(new java.awt.Font("JetBrains Mono", 0, 12));
+        messageLabel.setHorizontalAlignment(javax.swing.JLabel.CENTER);        messageLabel.setForeground(java.awt.Color.GRAY);
+        menuList.add(messageLabel);
         refreshMenuList();
     }
     private void showGroup() {

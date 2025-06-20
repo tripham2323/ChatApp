@@ -364,7 +364,45 @@ public class Service {
                     e.printStackTrace();                }
             }
         });
-        
+          // Get friends list event handler
+        server.addEventListener("get_friends_list", Integer.class, new DataListener<Integer>() {
+            @Override
+            public void onData(SocketIOClient socketClient, Integer userID, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== SERVER RECEIVED GET_FRIENDS_LIST REQUEST ===");
+                    System.out.println("UserID: " + userID);
+                    List<Model_User_Account> friendsList = serviceUser.getFriendsList(userID);
+                    System.out.println("Found " + friendsList.size() + " friends");
+                    
+                    // Convert to a format that can be sent via socket.io
+                    List<Object> friendsData = new ArrayList<>();
+                    for (Model_User_Account friend : friendsList) {
+                        System.out.println("Adding friend: " + friend.getUserName() + " (ID: " + friend.getUserID() + ")");
+                        java.util.Map<String, Object> friendMap = new java.util.HashMap<>();
+                        friendMap.put("userID", friend.getUserID());
+                        friendMap.put("userName", friend.getUserName());
+                        friendMap.put("gender", friend.getGender());
+                        friendMap.put("image", friend.getImage());
+                        friendMap.put("status", friend.getStatus());
+                        friendsData.add(friendMap);
+                    }
+                    
+                    // Send response with friends data
+                    Object[] responseData = new Object[friendsData.size() + 1];
+                    responseData[0] = true; // Success flag
+                    for (int i = 0; i < friendsData.size(); i++) {
+                        responseData[i + 1] = friendsData.get(i);
+                    }
+                    System.out.println("Sending response with " + friendsData.size() + " friends");
+                    ar.sendAckData(responseData);
+                    textArea.append("Friends list retrieved for UserID: " + userID + " (" + friendsList.size() + " friends)\n");
+                } catch (Exception e) {
+                    ar.sendAckData(false, "Error retrieving friends list: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        });
+
         server.start();
         textArea.append("Server bắt đầu khởi tạo trên cổng : "+PORT_NUMBER+"\n");
     }

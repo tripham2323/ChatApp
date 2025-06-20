@@ -40,6 +40,8 @@ public class ServiceUser {
     private final String INSERT_FRIEND_REQUEST = "insert into friend_requests (fromUserID, toUserID, status, created_at) values (?,?,'pending',NOW())";    private final String CHECK_EXISTING_REQUEST = "select id from friend_requests where fromUserID=? and toUserID=? and status='pending'";
     private final String CHECK_FRIENDSHIP_EXISTS = "select id from friendships where (user1ID=? and user2ID=?) or (user1ID=? and user2ID=?)";
     private final String UPDATE_FRIEND_REQUEST_STATUS = "update friend_requests set status=? where id=?";    private final String GET_PENDING_FRIEND_REQUESTS = "select fr.id, fr.fromUserID, ua.UserName, ua.Gender, ua.Image, fr.created_at from friend_requests fr join user_account ua on fr.fromUserID = ua.UserID where fr.toUserID=? and fr.status='pending' order by fr.created_at desc";
+    // Get friends list query
+    private final String GET_FRIENDS_LIST = "select ua.UserID, ua.UserName, ua.Gender, ua.Image from friendships f join user_account ua on (f.user1ID = ua.UserID or f.user2ID = ua.UserID) where (f.user1ID = ? or f.user2ID = ?) and ua.UserID != ? and ua.Status = '1' order by ua.UserName";
     //khởi tạo connect sql
     private final Connection con;
     public ServiceUser() {
@@ -430,5 +432,87 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
             if (p != null) p.close();
         }
         return null;
+    }    // Get friends list for a user
+    public List<Model_User_Account> getFriendsList(int userID) throws SQLException, IOException {
+        System.out.println("=== SERVER: Getting friends list for user ID: " + userID + " ===");
+        List<Model_User_Account> friends = new ArrayList<>();
+        PreparedStatement p = null;
+        ResultSet r = null;
+        
+        try {
+            System.out.println("SQL Query: " + GET_FRIENDS_LIST);
+            p = con.prepareStatement(GET_FRIENDS_LIST);
+            p.setInt(1, userID);  // f.user1ID = ?
+            p.setInt(2, userID);  // f.user2ID = ?
+            p.setInt(3, userID);  // ua.UserID != ?
+            System.out.println("Parameters: userID=" + userID + ", userID=" + userID + ", userID=" + userID);
+            
+            r = p.executeQuery();
+            
+            int rowCount = 0;
+            while (r.next()) {
+                rowCount++;
+                int friendUserID = r.getInt("UserID");
+                String userName = r.getString("UserName");
+                String gender = r.getString("Gender");
+                
+                System.out.println("Row " + rowCount + ": Found friend UserID=" + friendUserID + ", UserName=" + userName + ", Gender=" + gender);
+                
+                Model_User_Account friend = new Model_User_Account();
+                friend.setUserID(friendUserID);
+                friend.setUserName(userName);
+                friend.setGender(gender);
+                
+                // Handle image
+                InputStream input = r.getBinaryStream("Image");
+                if (input != null) {
+                    byte[] imageAvatar = new byte[input.available()];
+                    imageAvatar = input.readAllBytes();
+                    friend.setImage(imageAvatar);
+                    input.close();
+                    System.out.println("Image loaded: " + imageAvatar.length + " bytes");
+                } else {
+                    friend.setImage(new byte[0]);
+                    System.out.println("No image found for user");
+                }
+                
+                friend.setStatus(checkUserStatus(friendUserID));
+                System.out.println("Friend status: " + friend.getStatus());
+                friends.add(friend);
+            }
+            
+            System.out.println("=== SERVER: Total friends found: " + friends.size() + " ===");
+            if (rowCount == 0) {
+                System.out.println("=== SERVER: No rows returned from query ===");
+                // Let's debug the query step by step
+                System.out.println("=== DEBUG: Checking friendships table ===");
+                PreparedStatement debugP = con.prepareStatement("SELECT * FROM friendships WHERE user1ID = ? OR user2ID = ?");
+                debugP.setInt(1, userID);
+                debugP.setInt(2, userID);
+                ResultSet debugR = debugP.executeQuery();
+                System.out.println("Friendships for user " + userID + ":");
+                while (debugR.next()) {
+                    System.out.println("  Friendship: user1ID=" + debugR.getInt("user1ID") + ", user2ID=" + debugR.getInt("user2ID"));
+                }
+                debugR.close();
+                debugP.close();
+                
+                System.out.println("=== DEBUG: Checking user_account table ===");
+                PreparedStatement debugP2 = con.prepareStatement("SELECT UserID, UserName, Status FROM user_account WHERE UserID IN (10, 11)");
+                ResultSet debugR2 = debugP2.executeQuery();
+                System.out.println("User accounts:");
+                while (debugR2.next()) {
+                    System.out.println("  User: UserID=" + debugR2.getInt("UserID") + ", UserName=" + debugR2.getString("UserName") + ", Status=" + debugR2.getString("Status"));
+                }
+                debugR2.close();
+                debugP2.close();
+            }
+            
+        } finally {
+            if (r != null) r.close();
+            if (p != null) p.close();
+        }
+        
+        return friends;
     }
 }

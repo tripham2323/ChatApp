@@ -6,6 +6,8 @@ package component;
 
 import event.PublicEvent;
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -39,17 +41,28 @@ public class Item_people extends javax.swing.JPanel {
     public Item_people(Model_User_Account user){
         initComponents();
         this.user = user;
-         ByteArrayInputStream bis = new ByteArrayInputStream(user.getImage());
-         BufferedImage bImage;
+        
+        // Handle image safely
         try {
-            bImage = ImageIO.read(bis);
-            imAvatar = new ImageIcon(bImage);
-            imageAvatar1.setImage(imAvatar);
+            byte[] imageData = user.getImage();
+            if (imageData != null && imageData.length > 0) {
+                ByteArrayInputStream bis = new ByteArrayInputStream(imageData);
+                BufferedImage bImage = ImageIO.read(bis);
+                if (bImage != null) {
+                    imAvatar = new ImageIcon(bImage);
+                    imageAvatar1.setImage(imAvatar);
+                } else {
+                    // Use default avatar if image data is invalid
+                    setDefaultAvatar();
+                }
+            } else {
+                // Use default avatar if no image data
+                setDefaultAvatar();
+            }
             imageAvatar1.repaint();
             imageAvatar1.revalidate();
         
         
-            this.user.setImAvatar(imAvatar);
             lb.setText(user.getUserName());
         if(user.getStatus()){
             activeStatus.setActive(user.getStatus());
@@ -64,6 +77,25 @@ public class Item_people extends javax.swing.JPanel {
        
         
         init();
+    }
+    private void setDefaultAvatar() {
+        try {
+            // Load default avatar from resources or create a simple colored icon
+            // You can replace this with a default avatar image path
+            BufferedImage defaultImage = new BufferedImage(64, 64, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g2d = defaultImage.createGraphics();
+            g2d.setColor(new Color(150, 150, 150)); // Gray color
+            g2d.fillOval(0, 0, 64, 64);
+            g2d.setColor(Color.WHITE);
+            g2d.setFont(new Font("Arial", Font.BOLD, 20));
+            g2d.drawString("?", 25, 35);
+            g2d.dispose();
+            
+            imAvatar = new ImageIcon(defaultImage);
+            imageAvatar1.setImage(imAvatar);
+        } catch (Exception e) {
+            System.err.println("Error creating default avatar: " + e.getMessage());
+        }
     }
     public void updateStatus(){
         
