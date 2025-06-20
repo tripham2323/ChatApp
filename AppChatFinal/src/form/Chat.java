@@ -63,7 +63,8 @@ public class  Chat extends javax.swing.JPanel {
 
                 // Chỉ hiển thị tin nhắn nếu đang chat với người gửi
                 if(chatTitle.getUser() != null && chatTitle.getUser().getUserID() == fromUserID){
-                    chatBody.addItemLeft(data, file, user);
+                    // Truyền thông tin của người gửi thay vì người dùng hiện tại
+                    chatBody.addItemLeft(data, file, chatTitle.getUser());
                 }
             }
             @Override
@@ -78,7 +79,8 @@ public class  Chat extends javax.swing.JPanel {
 
                 // Chỉ hiển thị tin nhắn nếu đang chat với người gửi
                 if(chatTitle.getUser() != null && chatTitle.getUser().getUserID() == fromUserID){
-                    chatBody.addItemLeft(data, user);
+                    // Truyền thông tin của người gửi thay vì người dùng hiện tại
+                    chatBody.addItemLeft(data, chatTitle.getUser());
                 }
             }
         });

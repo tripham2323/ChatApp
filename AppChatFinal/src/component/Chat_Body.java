@@ -96,7 +96,23 @@ public class Chat_Body extends javax.swing.JPanel {
       private void setAvatar(Chat_Left_With_Profile item, Model_User_Account user){
       if (user.getImAvatar() != null) {
              item.setImageProfile(user.getImAvatar());
-         }else{
+         } else if (user.getImage() != null && user.getImage().length > 0) {
+             // Tạo ImageIcon từ byte array nếu imAvatar null
+             try {
+                 java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(user.getImage());
+                 java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(bis);
+                 if (image != null) {
+                     ImageIcon avatar = new ImageIcon(image);
+                     item.setImageProfile(avatar);
+                 } else {
+                     item.setImageProfile(new ImageIcon(getClass().getResource("/icon/profile2.png")));
+                 }
+                 bis.close();
+             } catch (Exception e) {
+                 System.err.println("Error creating avatar from byte array: " + e.getMessage());
+                 item.setImageProfile(new ImageIcon(getClass().getResource("/icon/profile2.png")));
+             }
+         } else {
              item.setImageProfile(new ImageIcon(getClass().getResource("/icon/profile2.png")));
          }
       
