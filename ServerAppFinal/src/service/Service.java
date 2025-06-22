@@ -34,6 +34,7 @@ import model.Model_Send_Message;
 import model.Model_User_Account;
 import model.Model_Voice_Sender;
 import model.Model_Friend_Request;
+import model.Model_Group_Chat;
 
 /**
  *
@@ -165,10 +166,131 @@ public class Service {
                 } catch (IOException | SQLException e) {
                     ar.sendAckData(false);
                     e.printStackTrace();
-                }
-                
-                }
+                }                }
         });
+        
+        System.out.println("=== ABOUT TO REGISTER send_to_group EVENT LISTENER ===");
+        
+        // Event listener for group messages - use Object.class to receive raw data
+        server.addEventListener("send_to_group", Object.class, new DataListener<Object>() {
+            @Override
+            public void onData(SocketIOClient socketClient, Object data, AckRequest ar) throws Exception {
+                System.out.println("=== SERVER RECEIVED GROUP MESSAGE (OBJECT) ===");
+                System.out.println("Data: " + data);
+                System.out.println("Data type: " + (data != null ? data.getClass().getName() : "null"));
+                  try {
+                    if (data != null) {
+                        // Handle both Model_Send_Message and Map data
+                        Model_Send_Message message = null;
+                        
+                        if (data instanceof Model_Send_Message) {
+                            message = (Model_Send_Message) data;
+                            System.out.println("Received Model_Send_Message directly");
+                        } else if (data instanceof java.util.Map) {
+                            // Parse Map data to Model_Send_Message
+                            @SuppressWarnings("unchecked")
+                            java.util.Map<String, Object> messageData = (java.util.Map<String, Object>) data;
+                            System.out.println("Parsing LinkedHashMap to Model_Send_Message");
+                            
+                            Object messageTypeObj = messageData.get("messageType");
+                            int messageType = 0;
+                            if (messageTypeObj instanceof String) {
+                                // Convert "TEXT" to MessageType.TEXT.getValue()
+                                if ("TEXT".equals(messageTypeObj)) {
+                                    messageType = 1; // MessageType.TEXT
+                                }
+                            } else if (messageTypeObj instanceof Number) {
+                                messageType = ((Number) messageTypeObj).intValue();
+                            }
+                            
+                            int fromUserID = ((Number) messageData.get("fromUserID")).intValue();
+                            int toUserID = ((Number) messageData.get("toUserID")).intValue(); // This is groupID
+                            String text = (String) messageData.get("text");
+                            
+                            message = new Model_Send_Message(messageType, fromUserID, toUserID, text);
+                            System.out.println("Successfully created Model_Send_Message from Map");
+                        }
+                        
+                        if (message != null) {
+                            System.out.println("Processing message:");
+                            System.out.println("FromUserID: " + message.getFromUserID());
+                            System.out.println("ToUserID (GroupID): " + message.getToUserID());
+                            System.out.println("MessageType: " + message.getMessageType());
+                            System.out.println("Text: " + message.getText());
+                            
+                            // Save message to group_messages table
+                            boolean saved = serviceUser.saveGroupMessage(message);
+                            if (saved) {
+                                System.out.println("Message saved to database successfully");
+                                
+                                // Get all group members
+                                List<Model_User_Account> members = serviceUser.getGroupMembers(message.getToUserID());
+                                System.out.println("Found " + members.size() + " members in group " + message.getToUserID());
+                                  // Get sender info for avatar
+                                Model_User_Account senderInfo = serviceUser.getUserByID(message.getFromUserID());
+                                
+                                // Send message to all group members except sender
+                                for (Model_User_Account member : members) {
+                                    System.out.println("Checking member: " + member.getUserName() + " (ID: " + member.getUserID() + ")");
+                                    if (member.getUserID() != message.getFromUserID()) {
+                                        // Find client by userID
+                                        boolean found = false;
+                                        for (Model_Client client : listClient) {
+                                            if (client.getUser().getUserID() == member.getUserID()) {
+                                                System.out.println("Sending group message to: " + member.getUserName());
+                                                
+                                                // Create a special group message format that includes sender info
+                                                java.util.Map<String, Object> groupMessage = new java.util.HashMap<>();
+                                                groupMessage.put("messageType", message.getMessageType());
+                                                groupMessage.put("fromUserID", message.getFromUserID());
+                                                groupMessage.put("text", message.getText());
+                                                groupMessage.put("isGroupMessage", true);
+                                                groupMessage.put("groupID", message.getToUserID());
+                                                
+                                                // Add sender info for avatar display
+                                                if (senderInfo != null) {
+                                                    groupMessage.put("senderName", senderInfo.getUserName());
+                                                    groupMessage.put("senderAvatar", senderInfo.getImage());
+                                                    System.out.println("Added sender info: " + senderInfo.getUserName() + 
+                                                                     " (avatar: " + (senderInfo.getImage() != null ? senderInfo.getImage().length + " bytes" : "null") + ")");
+                                                }
+                                                
+                                                // Send as special group message event
+                                                client.getClient().sendEvent("receive_group_message", groupMessage);
+                                                found = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!found) {
+                                            System.out.println("Member " + member.getUserName() + " is not online");
+                                        }
+                                    } else {
+                                        System.out.println("Skipping sender: " + member.getUserName());
+                                    }
+                                }
+                                ar.sendAckData(true);
+                            } else {
+                                System.out.println("Failed to save message to database");
+                                ar.sendAckData(false);
+                            }
+                        } else {
+                            System.out.println("Could not parse message data, type: " + data.getClass().getName());
+                            System.out.println("Data: " + data.toString());
+                            ar.sendAckData(false, "Server could not parse message data");
+                        }
+                    } else {
+                        System.out.println("Data is null!");
+                        ar.sendAckData(false);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error parsing group message: " + e.getMessage());
+                    e.printStackTrace();
+                    ar.sendAckData(false);
+                }
+            }
+        });
+        System.out.println("=== EVENT LISTENER REGISTERED: send_to_group ===");
+        
         server.addEventListener("download", Model_Package_Sender.class, new DataListener<Model_Package_Sender>() {
             @Override
             public void onData(SocketIOClient socketClient, Model_Package_Sender t, AckRequest ar) throws Exception {
@@ -411,6 +533,96 @@ public class Service {
                 }
             }
         });
+        // Group chat event handlers
+        server.addEventListener("create_group", Object.class, new DataListener<Object>() {
+            @Override
+            public void onData(SocketIOClient socketClient, Object requestData, AckRequest ar) throws Exception {
+                try {
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> data = (java.util.Map<String, Object>) requestData;
+                    String groupName = (String) data.get("groupName");
+                    String groupDescription = (String) data.get("groupDescription");
+                    int createdBy = ((Number) data.get("createdBy")).intValue();
+                    
+                    // Parse member IDs
+                    @SuppressWarnings("unchecked")
+                    java.util.List<Integer> memberList = (java.util.List<Integer>) data.get("memberIDs");
+                    int[] memberIDs = new int[memberList.size()];
+                    for (int i = 0; i < memberList.size(); i++) {
+                        memberIDs[i] = memberList.get(i);
+                    }
+                    
+                    Model_Group_Chat group = serviceUser.createGroup(groupName, groupDescription, memberIDs, createdBy);
+                    
+                    if (group != null) {
+                        ar.sendAckData(true, "Group created successfully", group);
+                        textArea.append("Group created: " + groupName + " by UserID " + createdBy + "\n");
+                        
+                        // Notify all group members about the new group
+                        notifyGroupCreated(group, memberIDs);
+                    } else {
+                        ar.sendAckData(false, "Failed to create group");
+                    }
+                } catch (Exception e) {
+                    ar.sendAckData(false, "Error creating group: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        });
+          server.addEventListener("get_user_groups", Integer.class, new DataListener<Integer>() {
+            @Override
+            public void onData(SocketIOClient socketClient, Integer userID, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== SERVER GET_USER_GROUPS START ===");
+                    System.out.println("UserID: " + userID);
+                    
+                    List<Model_Group_Chat> groups = serviceUser.getUserGroups(userID);
+                    System.out.println("Groups retrieved from DB: " + groups.size() + " groups");
+                    
+                    // Convert to a format that can be sent via socket.io
+                    List<Object> groupsData = new ArrayList<>();
+                    for (Model_Group_Chat group : groups) {
+                        System.out.println("--- Processing group ---");
+                        System.out.println("GroupID: " + group.getGroupID());
+                        System.out.println("GroupName: " + group.getGroupName());
+                        System.out.println("CreatedBy: " + group.getCreatedBy());
+                        
+                        java.util.Map<String, Object> groupMap = new java.util.HashMap<>();
+                        groupMap.put("groupID", group.getGroupID());
+                        groupMap.put("groupName", group.getGroupName());
+                        groupMap.put("groupDescription", group.getGroupDescription());
+                        groupMap.put("groupImage", group.getGroupImage());
+                        groupMap.put("createdBy", group.getCreatedBy());
+                        groupMap.put("createdAt", group.getCreatedAt() != null ? group.getCreatedAt().toString() : null);
+                        groupMap.put("lastMessage", group.getLastMessage());
+                        groupMap.put("lastMessageTime", group.getLastMessageTime() != null ? group.getLastMessageTime().toString() : null);
+                        groupMap.put("status", group.getStatus());
+                        
+                        System.out.println("GroupMap created: " + groupMap);
+                        groupsData.add(groupMap);
+                    }
+                    
+                    Object[] responseData = new Object[groupsData.size() + 1];
+                    responseData[0] = true;
+                    for (int i = 0; i < groupsData.size(); i++) {
+                        responseData[i + 1] = groupsData.get(i);
+                    }
+                    
+                    System.out.println("=== SERVER RESPONSE DATA ===");
+                    System.out.println("Response length: " + responseData.length);
+                    for (int i = 0; i < responseData.length; i++) {
+                        System.out.println("responseData[" + i + "]: " + responseData[i]);
+                    }
+                    System.out.println("=== SERVER GET_USER_GROUPS END ===");
+                    
+                    ar.sendAckData(responseData);
+                    textArea.append("Groups retrieved for UserID: " + userID + " (" + groups.size() + " groups)\n");
+                } catch (Exception e) {
+                    ar.sendAckData(false, "Error retrieving groups: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        });
 
         server.start();
         textArea.append("Server bắt đầu khởi tạo trên cổng : "+PORT_NUMBER+"\n");
@@ -546,6 +758,24 @@ public class Service {
             }
         } catch (Exception e) {
             textArea.append("Error notifying friend request: " + e.getMessage() + "\n");
+        }
+    }
+
+    // Method to notify group members about new group creation
+    private void notifyGroupCreated(Model_Group_Chat group, int[] memberIDs) {
+        try {
+            for (int memberID : memberIDs) {
+                for (Model_Client c : listClient) {
+                    if (c.getUser().getUserID() == memberID) {
+                        // Send notification to group member about new group
+                        c.getClient().sendEvent("group_created", group);
+                        textArea.append("Notified UserID " + memberID + " about new group: " + group.getGroupName() + "\n");
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            textArea.append("Error notifying group creation: " + e.getMessage() + "\n");
         }
     }
 }

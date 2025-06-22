@@ -129,10 +129,34 @@ public class chat_Bottom extends javax.swing.JPanel {
                     refresh();
                 }else{
                     txt.grabFocus();
-                }
+                }    }    private void send(Model_Send_Message data){        // Check if this is a group chat
+        if (isGroupChat()) {
+            System.out.println("=== SENDING GROUP MESSAGE ===");
+            System.out.println("Group ID: " + data.getToUserID());
+            System.out.println("From User: " + data.getFromUserID());
+            System.out.println("Message: " + data.getText());
+            System.out.println("Message Type: " + data.getMessageType());
+            System.out.println("Data object: " + data);
+            System.out.println("About to emit send_to_group event...");
+            
+            // Send as Map instead of Model_Send_Message object to avoid serialization issues
+            java.util.Map<String, Object> messageData = new java.util.HashMap<>();
+            messageData.put("fromUserID", data.getFromUserID());
+            messageData.put("toUserID", data.getToUserID()); // This is groupID
+            messageData.put("messageType", data.getMessageType());
+            messageData.put("text", data.getText());
+            
+            service.Service.getInstance().getClient().emit("send_to_group", messageData);
+            System.out.println("Emitted send_to_group event successfully");
+        } else {
+            System.out.println("=== SENDING USER MESSAGE ===");
+            System.out.println("To User: " + data.getToUserID());
+            service.Service.getInstance().getClient().emit("send_to_user", data);
+        }
     }
-    private void send(Model_Send_Message data){
-        Service.getInstance().getClient().emit("send_to_user", data.toJSONObject());//gửi event "send to user" qua server xử lí 
+      private boolean isGroupChat() {
+        // Check if the user object represents a group using the isGroup flag
+        return user != null && user.isGroup();
     }
     private void refresh(){
         revalidate();

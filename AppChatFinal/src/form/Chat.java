@@ -50,8 +50,7 @@ public class  Chat extends javax.swing.JPanel {
             public void sendMessage(Model_Voice_Receive data) {
                 chatBody.addItemRight(data);
                 saveToChatHistory(user.getUserID(), data, true);
-            }
-            @Override
+            }            @Override
             public void receiveMessage(Model_Receive_Message data, File file) {
                 // Lưu tin nhắn vào lịch sử bất kể người dùng hiện tại là ai
                 int fromUserID = data.getFromUserID();
@@ -59,12 +58,24 @@ public class  Chat extends javax.swing.JPanel {
                     chatHistory.put(fromUserID, new ArrayList<>());
                 }
                 Object[] messageInfo = new Object[]{data, false};
-                chatHistory.get(fromUserID).add(messageInfo);
-
-                // Chỉ hiển thị tin nhắn nếu đang chat với người gửi
-                if(chatTitle.getUser() != null && chatTitle.getUser().getUserID() == fromUserID){
-                    // Truyền thông tin của người gửi thay vì người dùng hiện tại
-                    chatBody.addItemLeft(data, file, chatTitle.getUser());
+                chatHistory.get(fromUserID).add(messageInfo);                // Kiểm tra xem có đang chat với người gửi hoặc trong nhóm không
+                if (chatTitle.getUser() != null) {
+                    boolean shouldDisplay = false;
+                    
+                    // Tạm thời hiển thị tất cả tin nhắn (sẽ sửa logic sau)
+                    // TODO: Thêm logic kiểm tra nhóm khi isGroup() method được compile
+                    shouldDisplay = true;
+                    
+                    if (shouldDisplay) {
+                        // Tìm thông tin người gửi để hiển thị
+                        Model_User_Account sender = findUserInfo(fromUserID);
+                        if (sender != null) {
+                            chatBody.addItemLeft(data, file, sender);
+                        } else {
+                            // Fallback nếu không tìm thấy thông tin người gửi
+                            chatBody.addItemLeft(data, file, chatTitle.getUser());
+                        }
+                    }
                 }
             }
             @Override
@@ -81,6 +92,31 @@ public class  Chat extends javax.swing.JPanel {
                 if(chatTitle.getUser() != null && chatTitle.getUser().getUserID() == fromUserID){
                     // Truyền thông tin của người gửi thay vì người dùng hiện tại
                     chatBody.addItemLeft(data, chatTitle.getUser());
+                }
+            }            @Override
+            public void receiveGroupMessage(Model_Receive_Message data, Model_User_Account senderInfo, int groupID) {
+                System.out.println("=== CHAT RECEIVED GROUP MESSAGE ===");
+                System.out.println("Group ID: " + groupID);
+                System.out.println("Sender: " + (senderInfo != null ? senderInfo.getUserName() : "Unknown"));
+                System.out.println("Message: " + data.getText());
+                
+                // Lưu tin nhắn vào lịch sử nhóm (sử dụng groupID âm để phân biệt với user)
+                int groupKey = -groupID; // Use negative to distinguish from userID
+                if (!chatHistory.containsKey(groupKey)) {
+                    chatHistory.put(groupKey, new ArrayList<>());
+                }
+                Object[] messageInfo = new Object[]{data, false, senderInfo}; // Add sender info
+                chatHistory.get(groupKey).add(messageInfo);
+                
+                // Kiểm tra xem có đang chat với nhóm này không
+                if (chatTitle.getUser() != null && chatTitle.getUser().getUserID() == groupID) {
+                    System.out.println("Displaying group message in current chat");
+                    // Hiển thị tin nhắn với avatar của người gửi
+                    chatBody.addItemLeft(data, null, senderInfo);
+                } else {
+                    System.out.println("Not currently chatting with this group (current: " + 
+                                     (chatTitle.getUser() != null ? chatTitle.getUser().getUserID() : "none") + 
+                                     ", message group: " + groupID + ")");
                 }
             }
         });
@@ -171,6 +207,21 @@ public class  Chat extends javax.swing.JPanel {
                     }
                 }
             }
+        }
+    }
+    
+    // Phương thức tìm thông tin user theo ID
+    private Model_User_Account findUserInfo(int userID) {
+        // Tìm trong danh sách user hiện có (có thể từ Menu_Left hoặc Service)
+        try {
+            // Tạm thời tạo user với thông tin cơ bản
+            Model_User_Account user = new Model_User_Account();
+            user.setUserID(userID);
+            user.setUserName("User " + userID); // Tên tạm thời
+            user.setStatus(true);
+            return user;
+        } catch (Exception e) {
+            return null;
         }
     }
 }

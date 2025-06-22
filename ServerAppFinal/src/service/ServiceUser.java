@@ -22,6 +22,7 @@ import model.Model_Message;
 import model.Model_Register;
 import model.Model_User_Account;
 import model.Model_Friend_Request;
+import model.Model_Group_Chat;
 /**
  *
  * @author Admin
@@ -42,6 +43,23 @@ public class ServiceUser {
     private final String UPDATE_FRIEND_REQUEST_STATUS = "update friend_requests set status=? where id=?";    private final String GET_PENDING_FRIEND_REQUESTS = "select fr.id, fr.fromUserID, ua.UserName, ua.Gender, ua.Image, fr.created_at from friend_requests fr join user_account ua on fr.fromUserID = ua.UserID where fr.toUserID=? and fr.status='pending' order by fr.created_at desc";
     // Get friends list query
     private final String GET_FRIENDS_LIST = "select ua.UserID, ua.UserName, ua.Gender, ua.Image from friendships f join user_account ua on (f.user1ID = ua.UserID or f.user2ID = ua.UserID) where (f.user1ID = ? or f.user2ID = ?) and ua.UserID != ? and ua.Status = '1' order by ua.UserName";
+    // Group chat queries
+    private final String CREATE_GROUP = "insert into chat_groups (groupName, groupDescription, createdBy) values (?,?,?)";
+    private final String ADD_GROUP_MEMBER = "insert into group_members (groupID, userID, role) values (?,?,?)";
+    private final String GET_USER_GROUPS = "select cg.groupID, cg.groupName, cg.groupDescription, cg.groupImage, cg.createdBy, cg.createdAt, " +
+                                          "(select gm2.messageContent from group_messages gm2 where gm2.groupID = cg.groupID order by gm2.sentAt desc limit 1) as lastMessage, " +
+                                          "(select gm3.sentAt from group_messages gm3 where gm3.groupID = cg.groupID order by gm3.sentAt desc limit 1) as lastMessageTime " +
+                                          "from chat_groups cg " +
+                                          "join group_members gm on cg.groupID = gm.groupID " +
+                                          "where gm.userID = ? and gm.status = 'active' and cg.status = 'active' " +
+                                          "order by lastMessageTime desc";
+    private final String GET_GROUP_MEMBERS = "select ua.UserID, ua.UserName, ua.Gender, ua.Image, gm.role " +
+                                           "from group_members gm " +
+                                           "join user_account ua on gm.userID = ua.UserID " +
+                                           "where gm.groupID = ? and gm.status = 'active' and ua.Status = '1'";
+    // Group message queries
+    private final String SAVE_GROUP_MESSAGE = "insert into group_messages (groupID, senderID, messageType, messageContent, sentAt) values (?,?,?,?,NOW())";
+
     //khởi tạo connect sql
     private final Connection con;
     public ServiceUser() {
@@ -586,5 +604,182 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
         }
         
         return list;
+    }
+    
+    // Create a new group chat
+    public Model_Group_Chat createGroup(String groupName, String groupDescription, int[] memberIDs, int createdBy) throws SQLException {
+        PreparedStatement createGroupStmt = null;
+        PreparedStatement addMemberStmt = null;
+        ResultSet generatedKeys = null;
+        
+        try {
+            con.setAutoCommit(false);
+            
+            // Create the group
+            createGroupStmt = con.prepareStatement(CREATE_GROUP, PreparedStatement.RETURN_GENERATED_KEYS);
+            createGroupStmt.setString(1, groupName);
+            createGroupStmt.setString(2, groupDescription);
+            createGroupStmt.setInt(3, createdBy);
+            
+            int affectedRows = createGroupStmt.executeUpdate();
+            if (affectedRows == 0) {
+                throw new SQLException("Creating group failed, no rows affected.");
+            }
+            
+            // Get the generated group ID
+            generatedKeys = createGroupStmt.getGeneratedKeys();
+            int groupID = 0;
+            if (generatedKeys.next()) {
+                groupID = generatedKeys.getInt(1);
+            } else {
+                throw new SQLException("Creating group failed, no ID obtained.");
+            }
+            
+            // Add members to the group (creator is already added by trigger as admin)
+            if (memberIDs != null && memberIDs.length > 0) {
+                addMemberStmt = con.prepareStatement(ADD_GROUP_MEMBER);
+                for (int memberID : memberIDs) {
+                    if (memberID != createdBy) { // Skip creator as they're already added by trigger
+                        addMemberStmt.setInt(1, groupID);
+                        addMemberStmt.setInt(2, memberID);
+                        addMemberStmt.setString(3, "member");
+                        addMemberStmt.addBatch();
+                    }
+                }
+                addMemberStmt.executeBatch();
+            }
+            
+            con.commit();
+            
+            // Return the created group info
+            Model_Group_Chat group = new Model_Group_Chat();
+            group.setGroupID(groupID);
+            group.setGroupName(groupName);
+            group.setGroupDescription(groupDescription);
+            group.setCreatedBy(createdBy);
+            group.setStatus("active");
+            
+            return group;
+            
+        } catch (SQLException e) {
+            try {
+                con.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            throw e;
+        } finally {
+            try {
+                con.setAutoCommit(true);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            if (generatedKeys != null) generatedKeys.close();
+            if (addMemberStmt != null) addMemberStmt.close();
+            if (createGroupStmt != null) createGroupStmt.close();
+        }
+    }
+    
+    // Get user's groups
+    public List<Model_Group_Chat> getUserGroups(int userID) throws SQLException, IOException {
+        List<Model_Group_Chat> groups = new ArrayList<>();
+        PreparedStatement p = null;
+        ResultSet r = null;
+        
+        try {
+            p = con.prepareStatement(GET_USER_GROUPS);
+            p.setInt(1, userID);
+            r = p.executeQuery();
+            
+            while (r.next()) {
+                Model_Group_Chat group = new Model_Group_Chat();
+                group.setGroupID(r.getInt("groupID"));
+                group.setGroupName(r.getString("groupName"));
+                group.setGroupDescription(r.getString("groupDescription"));
+                
+                // Handle group image
+                InputStream input = r.getBinaryStream("groupImage");
+                if (input != null) {
+                    byte[] groupImage = new byte[input.available()];
+                    groupImage = input.readAllBytes();
+                    group.setGroupImage(groupImage);
+                    input.close();
+                } else {
+                    group.setGroupImage(new byte[0]);
+                }
+                
+                group.setCreatedBy(r.getInt("createdBy"));
+                group.setCreatedAt(r.getTimestamp("createdAt"));
+                group.setLastMessage(r.getString("lastMessage"));
+                group.setLastMessageTime(r.getTimestamp("lastMessageTime"));
+                group.setStatus("active");
+                
+                groups.add(group);
+            }
+        } finally {
+            if (r != null) r.close();
+            if (p != null) p.close();
+        }
+        
+        return groups;
+    }
+    
+    // Get group members
+    public List<Model_User_Account> getGroupMembers(int groupID) throws SQLException, IOException {
+        List<Model_User_Account> members = new ArrayList<>();
+        PreparedStatement p = null;
+        ResultSet r = null;
+        
+        try {
+            p = con.prepareStatement(GET_GROUP_MEMBERS);
+            p.setInt(1, groupID);
+            r = p.executeQuery();
+            
+            while (r.next()) {
+                Model_User_Account member = new Model_User_Account();
+                member.setUserID(r.getInt("UserID"));
+                member.setUserName(r.getString("UserName"));
+                member.setGender(r.getString("Gender"));
+                
+                // Handle user image
+                InputStream input = r.getBinaryStream("Image");
+                if (input != null) {
+                    byte[] userImage = new byte[input.available()];
+                    userImage = input.readAllBytes();
+                    member.setImage(userImage);
+                    input.close();
+                } else {
+                    member.setImage(new byte[0]);
+                }
+                
+                member.setStatus(checkUserStatus(member.getUserID()));
+                members.add(member);
+            }
+        } finally {
+            if (r != null) r.close();
+            if (p != null) p.close();
+        }
+        
+        return members;
+    }
+    
+    // Method to save group message
+    public boolean saveGroupMessage(model.Model_Send_Message message) throws SQLException {
+        Connection con = null;
+        PreparedStatement p = null;
+        
+        try {
+            con = DatabaseConnection.getInstance().getConnection();
+            p = con.prepareStatement(SAVE_GROUP_MESSAGE);
+              p.setInt(1, message.getToUserID()); // Using toUserID as groupID
+            p.setInt(2, message.getFromUserID()); // senderID
+            p.setString(3, String.valueOf(message.getMessageType())); // messageType
+            p.setString(4, message.getText()); // messageContent
+            
+            int result = p.executeUpdate();
+            return result > 0;
+        } finally {
+            if (p != null) p.close();
+        }
     }
 }

@@ -20,6 +20,8 @@ public class Model_User_Account {
     private byte[] image;
     private Boolean status;
     private ImageIcon imAvatar;
+    private boolean isGroup = false; // Flag to indicate if this represents a group
+    
       public Model_User_Account(int UserID, String userName, String gender, byte[] image, Boolean status) {
         this.UserID = UserID;
         this.userName = userName;
@@ -134,6 +136,13 @@ public class Model_User_Account {
      */
     public void setImAvatar(ImageIcon imAvatar) {
         this.imAvatar = imAvatar;
+    }
+      public boolean isGroup() {
+        return isGroup;
+    }
+    
+    public void setGroup(boolean isGroup) {
+        this.isGroup = isGroup;
     }
     
 }

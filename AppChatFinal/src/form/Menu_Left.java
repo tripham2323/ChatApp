@@ -21,6 +21,7 @@ public class Menu_Left extends javax.swing.JPanel {
     private List<Model_User_Account> userAccount;
     private List<Model_User_Account> friendsList; // Danh sách bạn bè
     private component.FriendSearchPanelNew friendSearchPanel;
+    private List<component.Item_Group> groupItems = new ArrayList<>();
     /**
      * Creates new form Menu_Left
      */
@@ -283,21 +284,63 @@ public class Menu_Left extends javax.swing.JPanel {
         messageLabel.setHorizontalAlignment(javax.swing.JLabel.CENTER);        messageLabel.setForeground(java.awt.Color.GRAY);
         menuList.add(messageLabel);
         refreshMenuList();
-    }
-    private void showGroup() {
-        // Use BoxLayout for proper vertical stacking of group items, like the original
-        menuList.setLayout(new javax.swing.BoxLayout(menuList, javax.swing.BoxLayout.Y_AXIS));
+    }    private void showGroup() {
+        // Use BorderLayout for group functionality
+        menuList.setLayout(new java.awt.BorderLayout());
         
         menuList.removeAll();
-        for (int i = 0; i < 5; i++) {
-            Item_people item = new Item_people(null);
-            // Set fixed height for each item to prevent excessive height
-            item.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 60));
-            item.setPreferredSize(new java.awt.Dimension(200, 60));
-            menuList.add(item);
-        }
+        
+        // Create main group panel
+        javax.swing.JPanel groupMainPanel = new javax.swing.JPanel(new java.awt.BorderLayout());
+        groupMainPanel.setBackground(new java.awt.Color(242, 242, 242));
+        
+        // Header with create group button
+        javax.swing.JPanel headerPanel = new javax.swing.JPanel(new java.awt.BorderLayout());
+        headerPanel.setBackground(new java.awt.Color(242, 242, 242));
+        headerPanel.setBorder(new javax.swing.border.EmptyBorder(10, 10, 10, 10));
+        
+        javax.swing.JLabel titleLabel = new javax.swing.JLabel("Nhóm chat");
+        titleLabel.setFont(new java.awt.Font("JetBrains Mono", java.awt.Font.BOLD, 14));
+        titleLabel.setForeground(new java.awt.Color(85, 85, 85));
+        headerPanel.add(titleLabel, java.awt.BorderLayout.WEST);
+        
+        javax.swing.JButton createGroupButton = new javax.swing.JButton("+ Tạo nhóm");
+        createGroupButton.setFont(new java.awt.Font("JetBrains Mono", java.awt.Font.BOLD, 11));
+        createGroupButton.setBackground(new java.awt.Color(27, 149, 226));
+        createGroupButton.setForeground(java.awt.Color.WHITE);
+        createGroupButton.setBorder(new javax.swing.border.EmptyBorder(5, 10, 5, 10));
+        createGroupButton.setFocusPainted(false);        createGroupButton.addActionListener(new java.awt.event.ActionListener() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                Menu_Left.this.showCreateGroupDialog(evt);
+            }
+        });
+        headerPanel.add(createGroupButton, java.awt.BorderLayout.EAST);
+        
+        groupMainPanel.add(headerPanel, java.awt.BorderLayout.NORTH);
+        
+        // Group list panel
+        javax.swing.JPanel groupListPanel = new javax.swing.JPanel();
+        groupListPanel.setLayout(new javax.swing.BoxLayout(groupListPanel, javax.swing.BoxLayout.Y_AXIS));
+        groupListPanel.setBackground(new java.awt.Color(242, 242, 242));
+        
+        // Scroll pane for group list
+        javax.swing.JScrollPane groupScrollPane = new javax.swing.JScrollPane(groupListPanel);
+        groupScrollPane.setVerticalScrollBar(new ScrollBar());
+        groupScrollPane.getVerticalScrollBar().setBackground(java.awt.Color.WHITE);
+        groupScrollPane.getViewport().setBackground(new java.awt.Color(242, 242, 242));
+        groupScrollPane.setBackground(new java.awt.Color(242, 242, 242));
+        groupScrollPane.setBorder(new javax.swing.border.EmptyBorder(0, 0, 0, 0));
+        
+        groupMainPanel.add(groupScrollPane, java.awt.BorderLayout.CENTER);
+        
+        menuList.add(groupMainPanel, java.awt.BorderLayout.CENTER);
+        
+        // Load user groups
+        loadUserGroups(groupListPanel);
+        
         refreshMenuList();
-    }    private void showBox() {
+    }private void showBox() {
         // Use BoxLayout only for friend search functionality
         menuList.setLayout(new javax.swing.BoxLayout(menuList, javax.swing.BoxLayout.Y_AXIS));
         
@@ -432,6 +475,140 @@ public class Menu_Left extends javax.swing.JPanel {
          }
     }//GEN-LAST:event_menuBoxActionPerformed
 
+    private void showCreateGroupDialog(java.awt.event.ActionEvent evt) {
+        // First, get user's friends list using reflection
+        try {
+            Object serviceObj = Class.forName("service.Service").getMethod("getInstance").invoke(null);
+              // Create anonymous callback using reflection
+            Class<?> callbackClass = Class.forName("service.Service$FriendsListCallback");
+            Object callback = java.lang.reflect.Proxy.newProxyInstance(
+                callbackClass.getClassLoader(),
+                new Class[]{callbackClass},
+                new java.lang.reflect.InvocationHandler() {                    @Override
+                    public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+                        if ("onResult".equals(method.getName())) {
+                            @SuppressWarnings("unchecked")
+                            List<Model_User_Account> friends = (List<Model_User_Account>) args[0];
+                            javax.swing.SwingUtilities.invokeLater(() -> {
+                                java.awt.Frame parentFrame = (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(Menu_Left.this);
+                                component.CreateGroupDialog dialog = new component.CreateGroupDialog(parentFrame, friends);
+                                dialog.setVisible(true);
+                                
+                                // Refresh groups list after dialog closes
+                                if (menuGroup.isSelected()) {
+                                    showGroup();
+                                }
+                            });
+                        } else if ("onError".equals(method.getName())) {
+                            String error = (String) args[0];
+                            javax.swing.SwingUtilities.invokeLater(() -> {
+                                javax.swing.JOptionPane.showMessageDialog(Menu_Left.this, 
+                                    "Không thể tải danh sách bạn bè: " + error, 
+                                    "Lỗi", 
+                                    javax.swing.JOptionPane.ERROR_MESSAGE);
+                            });
+                        }
+                        return null;
+                    }
+                }
+            );
+            
+            serviceObj.getClass().getMethod("getFriendsList", callbackClass).invoke(serviceObj, callback);
+        } catch (Exception e) {
+            e.printStackTrace();
+            javax.swing.JOptionPane.showMessageDialog(this, 
+                "Lỗi khi tải danh sách bạn bè", 
+                "Lỗi", 
+                javax.swing.JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    private void loadUserGroups(javax.swing.JPanel groupListPanel) {
+        try {
+            Object serviceObj = Class.forName("service.Service").getMethod("getInstance").invoke(null);
+            
+            // Create anonymous callback using reflection
+            Class<?> callbackClass = Class.forName("service.Service$GroupListCallback");
+            Object callback = java.lang.reflect.Proxy.newProxyInstance(
+                callbackClass.getClassLoader(),
+                new Class[]{callbackClass},
+                new java.lang.reflect.InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+                        if ("onSuccess".equals(method.getName())) {
+                            @SuppressWarnings("unchecked")
+                            List<model.Model_Group_Chat> groups = (List<model.Model_Group_Chat>) args[0];
+                            javax.swing.SwingUtilities.invokeLater(() -> {
+                                updateGroupsList(groupListPanel, groups);
+                            });
+                        } else if ("onError".equals(method.getName())) {
+                            String error = (String) args[0];
+                            javax.swing.SwingUtilities.invokeLater(() -> {
+                                System.err.println("Error loading groups: " + error);
+                                showEmptyGroupState(groupListPanel);
+                            });
+                        }
+                        return null;
+                    }
+                }
+            );
+            
+            serviceObj.getClass().getMethod("getUserGroups", callbackClass).invoke(serviceObj, callback);
+        } catch (Exception e) {
+            e.printStackTrace();
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                showEmptyGroupState(groupListPanel);
+            });
+        }
+    }
+      private void updateGroupsList(javax.swing.JPanel groupListPanel, List<model.Model_Group_Chat> groups) {
+        System.out.println("=== UPDATING GROUPS LIST ===");
+        System.out.println("Number of groups received: " + groups.size());
+        
+        groupListPanel.removeAll();
+        groupItems.clear();
+        
+        if (groups.isEmpty()) {
+            showEmptyGroupState(groupListPanel);
+            return;
+        }
+        
+        for (model.Model_Group_Chat group : groups) {
+            System.out.println("Processing group:");
+            System.out.println("- Group ID: " + group.getGroupID());
+            System.out.println("- Group Name: " + group.getGroupName());
+            System.out.println("- Created By: " + group.getCreatedBy());
+            
+            component.Item_Group groupItem = new component.Item_Group(group);
+            groupItems.add(groupItem);
+            groupListPanel.add(groupItem);
+            groupListPanel.add(javax.swing.Box.createVerticalStrut(2));
+        }
+        
+        groupListPanel.revalidate();
+        groupListPanel.repaint();
+    }
+    
+    private void showEmptyGroupState(javax.swing.JPanel groupListPanel) {
+        groupListPanel.removeAll();
+        
+        javax.swing.JPanel emptyPanel = new javax.swing.JPanel(new java.awt.BorderLayout());
+        emptyPanel.setBackground(new java.awt.Color(242, 242, 242));
+        emptyPanel.setBorder(new javax.swing.border.EmptyBorder(50, 20, 50, 20));
+        
+        javax.swing.JLabel emptyLabel = new javax.swing.JLabel("<html><div style='text-align: center;'>" +
+                                     "Bạn chưa tham gia nhóm nào<br>" +
+                                     "Hãy tạo nhóm mới để bắt đầu trò chuyện!" +
+                                     "</div></html>");
+        emptyLabel.setFont(new java.awt.Font("JetBrains Mono", java.awt.Font.PLAIN, 12));
+        emptyLabel.setForeground(new java.awt.Color(128, 128, 128));
+        emptyLabel.setHorizontalAlignment(javax.swing.JLabel.CENTER);
+        emptyPanel.add(emptyLabel, java.awt.BorderLayout.CENTER);
+        
+        groupListPanel.add(emptyPanel);
+        groupListPanel.revalidate();
+        groupListPanel.repaint();
+    }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLayeredPane menu;

@@ -28,7 +28,9 @@ import model.Model_Send_Message;
 import model.Model_User_Account;
 import model.Model_Voice_Receive;
 import model.Model_Friend_Request;
+import model.Model_Group_Chat;
 import org.json.JSONObject;
+import org.json.JSONException;
 import swing.Recoder;
 
 public class Service {
@@ -124,11 +126,20 @@ public class Service {
                     
                     }
             });
-            
-            client.on("receive_ms", new Emitter.Listener() {
+              client.on("receive_ms", new Emitter.Listener() {
                 @Override
                 public void call(Object... os) {
+                    System.out.println("=== CLIENT RECEIVED MESSAGE EVENT ===");
+                    System.out.println("Received " + os.length + " objects");
+                    if (os.length > 0) {
+                        System.out.println("Message object: " + os[0]);
+                        System.out.println("Object type: " + os[0].getClass().getName());
+                    }
+                    
                     Model_Receive_Message message = new Model_Receive_Message(os[0]);
+                    System.out.println("Parsed message - From: " + message.getFromUserID() + 
+                                     ", Type: " + message.getMessageType() + 
+                                     ", Text: " + message.getText());
            
                     if (message.getMessageType().getValue() == MessageType.IMAGE.getValue()) {
                         try {
@@ -148,8 +159,7 @@ public class Service {
                     }
                   }
                     
-            });
-            client.on("receive_voice", new Emitter.Listener() {
+            });            client.on("receive_voice", new Emitter.Listener() {
                 @Override
                 public void call(Object... os) {
                     Model_Voice_Receive voice = new Model_Voice_Receive(os[0]);
@@ -178,6 +188,83 @@ public class Service {
                     } catch (Exception e) {
                         System.err.println("Error handling friend request notification: " + e.getMessage());
                         e.printStackTrace();
+                    }
+                }
+            });
+            
+            // Event listener for group messages with avatar info
+            client.on("receive_group_message", new Emitter.Listener() {
+                @Override
+                public void call(Object... os) {
+                    System.out.println("=== CLIENT RECEIVED GROUP MESSAGE EVENT ===");
+                    System.out.println("Received " + os.length + " objects");
+                    if (os.length > 0) {
+                        System.out.println("Group message object: " + os[0]);
+                        System.out.println("Object type: " + os[0].getClass().getName());
+                          try {
+                            // Parse group message data - handle both Map and JSONObject
+                            if (os[0] instanceof java.util.Map) {
+                                @SuppressWarnings("unchecked")
+                                java.util.Map<String, Object> messageData = (java.util.Map<String, Object>) os[0];
+                                processGroupMessageData(messageData);
+                            } else if (os[0].getClass().getName().contains("JSONObject")) {
+                                // Handle JSONObject using reflection to avoid import
+                                try {
+                                    Object jsonObj = os[0];
+                                    Class<?> jsonClass = jsonObj.getClass();
+                                    
+                                    // Extract data using reflection
+                                    int messageType = (Integer) jsonClass.getMethod("getInt", String.class).invoke(jsonObj, "messageType");
+                                    int fromUserID = (Integer) jsonClass.getMethod("getInt", String.class).invoke(jsonObj, "fromUserID");
+                                    String text = (String) jsonClass.getMethod("getString", String.class).invoke(jsonObj, "text");
+                                    boolean isGroupMessage = (Boolean) jsonClass.getMethod("getBoolean", String.class).invoke(jsonObj, "isGroupMessage");
+                                    int groupID = (Integer) jsonClass.getMethod("getInt", String.class).invoke(jsonObj, "groupID");
+                                    String senderName = (String) jsonClass.getMethod("getString", String.class).invoke(jsonObj, "senderName");
+                                    
+                                    // Handle avatar array
+                                    byte[] senderAvatar = null;
+                                    try {
+                                        Object avatarArray = jsonClass.getMethod("get", String.class).invoke(jsonObj, "senderAvatar");
+                                        if (avatarArray != null && avatarArray.getClass().isArray()) {
+                                            senderAvatar = (byte[]) avatarArray;
+                                        }
+                                    } catch (Exception e) {
+                                        System.out.println("Could not extract avatar: " + e.getMessage());
+                                    }
+                                    
+                                    System.out.println("=== PARSING JSON GROUP MESSAGE DATA ===");
+                                    System.out.println("Group message details:");
+                                    System.out.println("  MessageType: " + messageType);
+                                    System.out.println("  FromUserID: " + fromUserID);
+                                    System.out.println("  Text: " + text);
+                                    System.out.println("  GroupID: " + groupID);
+                                    System.out.println("  SenderName: " + senderName);
+                                    System.out.println("  SenderAvatar: " + (senderAvatar != null ? senderAvatar.length + " bytes" : "null"));
+                                    
+                                    // Create Model_Receive_Message with sender info
+                                    MessageType msgType = MessageType.toMessageType(messageType);
+                                    Model_Receive_Message message = new Model_Receive_Message(msgType, fromUserID, text);
+                                    
+                                    // Create a fake user account for sender info (for avatar display)
+                                    Model_User_Account senderInfo = new Model_User_Account();
+                                    senderInfo.setUserID(fromUserID);
+                                    senderInfo.setUserName(senderName);
+                                    senderInfo.setImage(senderAvatar);
+                                    
+                                    // Pass the message to the chat UI with sender info
+                                    PublicEvent.getInstance().getEventChat().receiveGroupMessage(message, senderInfo, groupID);
+                                    
+                                } catch (Exception e) {
+                                    System.err.println("Error parsing JSONObject group message: " + e.getMessage());
+                                    e.printStackTrace();
+                                }
+                            } else {
+                                System.out.println("Group message data is unsupported type: " + os[0].getClass().getName());
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Error parsing group message: " + e.getMessage());
+                            e.printStackTrace();
+                        }
                     }
                 }
             });
@@ -873,6 +960,114 @@ public class Service {
             e.printStackTrace();
             return null;
         }
+    }
+
+    // Group chat methods
+    public void createGroup(String groupName, String groupDescription, List<Integer> memberIDs, component.CreateGroupDialog.CreateGroupCallback callback) {
+        java.util.Map<String, Object> requestData = new java.util.HashMap<>();
+        requestData.put("groupName", groupName);
+        requestData.put("groupDescription", groupDescription);
+        requestData.put("memberIDs", memberIDs);
+        requestData.put("createdBy", user != null ? user.getUserID() : 0);
+        
+        client.emit("create_group", requestData, new Ack() {
+            @Override
+            public void call(Object... os) {
+                if (os.length > 0) {
+                    boolean success = (Boolean) os[0];
+                    if (success && os.length > 1) {
+                        callback.onSuccess((String) os[1]);
+                    } else {
+                        String error = os.length > 1 ? (String) os[1] : "Unknown error";
+                        callback.onError(error);
+                    }
+                } else {
+                    callback.onError("No response from server");
+                }
+            }
+        });
+    }
+    
+    public void getUserGroups(GroupListCallback callback) {
+        if (user == null) {
+            callback.onError("User not logged in");
+            return;
+        }
+        
+        client.emit("get_user_groups", user.getUserID(), new Ack() {
+            @Override
+            public void call(Object... os) {
+                if (os.length > 0) {
+                    boolean success = (Boolean) os[0];
+                    if (success) {
+                        List<Model_Group_Chat> groups = new ArrayList<>();
+                        
+                        // Parse groups data
+                        for (int i = 1; i < os.length; i++) {
+                            try {
+                                Model_Group_Chat group = new Model_Group_Chat(os[i]);
+                                groups.add(group);
+                            } catch (Exception e) {
+                                System.err.println("Error parsing group data: " + e.getMessage());
+                            }
+                        }
+                        
+                        callback.onSuccess(groups);
+                    } else {
+                        String error = os.length > 1 ? (String) os[1] : "Failed to get groups";
+                        callback.onError(error);
+                    }
+                } else {
+                    callback.onError("No response from server");
+                }
+            }
+        });
+    }
+    
+    public interface GroupListCallback {
+        void onSuccess(List<Model_Group_Chat> groups);
+        void onError(String error);
+    }
+    
+    public void getGroupMembers(int groupID, GroupMembersCallback callback) {
+        if (user == null) {
+            callback.onError("User not logged in");
+            return;
+        }
+        
+        client.emit("get_group_members", groupID, new Ack() {
+            @Override
+            public void call(Object... os) {
+                if (os.length > 0) {
+                    boolean success = (Boolean) os[0];
+                    if (success) {
+                        List<Model_User_Account> members = new ArrayList<>();
+                        
+                        // Parse members data
+                        for (int i = 1; i < os.length; i++) {
+                            try {
+                                Model_User_Account member = new Model_User_Account(os[i]);
+                                members.add(member);
+                            } catch (Exception e) {
+                                System.err.println("Error parsing member data: " + e.getMessage());
+                            }
+                        }
+                        
+                        callback.onSuccess(members);
+                    } else {
+                        String error = os.length > 1 ? (String) os[1] : "Failed to get group members";
+                        callback.onError(error);
+                    }
+                } else {
+                    callback.onError("No response from server");
+                }
+            }
+        });
+    }
+    
+    public interface GroupMembersCallback {
+        void onSuccess(List<Model_User_Account> members);
+        void onError(String error);
     }
 
     private void error(Exception e) {
