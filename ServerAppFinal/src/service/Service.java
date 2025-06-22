@@ -222,25 +222,30 @@ public class Service {
              
                }
         });
-        
-        // Friend search event handler
-        server.addEventListener("search_users", String.class, new DataListener<String>() {
+          // Friend search event handler - chỉ hiển thị người chưa kết bạn
+        server.addEventListener("search_users", Object.class, new DataListener<Object>() {
             @Override
-            public void onData(SocketIOClient socketClient, String searchText, AckRequest ar) throws Exception {
-                System.out.println("Server nhận yêu cầu tìm kiếm với từ khóa: " + searchText);
+            public void onData(SocketIOClient socketClient, Object requestData, AckRequest ar) throws Exception {
                 try {
-                    List<Model_User_Account> results = serviceUser.searchUsersByName(searchText);
-                    System.out.println("Tìm thấy " + results.size() + " kết quả, trả về cho client");
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> data = (java.util.Map<String, Object>) requestData;
+                    String searchText = (String) data.get("searchText");
+                    int currentUserID = ((Number) data.get("currentUserID")).intValue();
+                    
+                    System.out.println("Server nhận yêu cầu tìm kiếm với từ khóa: " + searchText + " từ UserID: " + currentUserID);
+                    
+                    List<Model_User_Account> results = serviceUser.searchUsersNotFriends(searchText, currentUserID);
+                    System.out.println("Tìm thấy " + results.size() + " người chưa kết bạn, trả về cho client");
 
                     // Gửi lại kết quả cho client
                     ar.sendAckData(true, results.toArray());
                 } catch (Exception e) {
-                    System.err.println("Lỗi khi tìm kiếm người dùng: " + e.getMessage());
+                    System.err.println("Lỗi khi tìm kiếm người dùng chưa kết bạn: " + e.getMessage());
                     e.printStackTrace();
                     ar.sendAckData(false, "Search failed: " + e.getMessage());
                 }
             }
-        });        
+        });
         // Friend request event handler
         server.addEventListener("send_friend_request", Object.class, new DataListener<Object>() {
             @Override

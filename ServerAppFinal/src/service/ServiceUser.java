@@ -515,4 +515,76 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
         
         return friends;
     }
+    
+    // Search users by username (excluding friends and pending requests)
+    public List<Model_User_Account> searchUsersNotFriends(String searchText, int currentUserID) throws SQLException, IOException {
+        System.out.println("Server đang tìm kiếm người chưa kết bạn với từ khóa: " + searchText + " cho UserID: " + currentUserID);
+        List<Model_User_Account> list = new ArrayList<>();
+        PreparedStatement p = null;
+        ResultSet r = null;
+        
+        // SQL query để tìm người dùng không phải bạn bè và không có yêu cầu kết bạn đang chờ
+        String SEARCH_NON_FRIENDS = "SELECT ua.UserID, ua.UserName, ua.Gender, ua.Image " +
+                                   "FROM user_account ua " +
+                                   "WHERE ua.Status = '1' " +
+                                   "AND ua.UserID != ? " +
+                                   "AND ua.UserName LIKE ? " +
+                                   "AND ua.UserID NOT IN (" +
+                                   "  SELECT CASE WHEN f.user1ID = ? THEN f.user2ID ELSE f.user1ID END " +
+                                   "  FROM friendships f " +
+                                   "  WHERE f.user1ID = ? OR f.user2ID = ?" +
+                                   ") " +
+                                   "AND ua.UserID NOT IN (" +
+                                   "  SELECT fr.toUserID FROM friend_requests fr " +
+                                   "  WHERE fr.fromUserID = ? AND fr.status = 'pending'" +
+                                   ") " +
+                                   "AND ua.UserID NOT IN (" +
+                                   "  SELECT fr.fromUserID FROM friend_requests fr " +
+                                   "  WHERE fr.toUserID = ? AND fr.status = 'pending'" +
+                                   ") " +
+                                   "LIMIT 10";
+        
+        try {
+            p = con.prepareStatement(SEARCH_NON_FRIENDS);
+            p.setInt(1, currentUserID);  // ua.UserID != ?
+            p.setString(2, "%" + searchText + "%");  // ua.UserName LIKE ?
+            p.setInt(3, currentUserID);  // CASE WHEN f.user1ID = ?
+            p.setInt(4, currentUserID);  // WHERE f.user1ID = ?
+            p.setInt(5, currentUserID);  // OR f.user2ID = ?
+            p.setInt(6, currentUserID);  // WHERE fr.fromUserID = ?
+            p.setInt(7, currentUserID);  // WHERE fr.toUserID = ?
+            
+            r = p.executeQuery();
+            System.out.println("Đã thực thi truy vấn tìm kiếm người chưa kết bạn");
+
+            while(r.next()) {
+                int userID = r.getInt(1);
+                String userName = r.getString(2);
+                String gender = r.getString(3);
+                InputStream input = r.getBinaryStream(4);
+                
+                if (input != null) {
+                    byte[] imageAvatar = new byte[input.available()];
+                    imageAvatar = input.readAllBytes();
+                    list.add(new Model_User_Account(userID, userName, gender, imageAvatar, checkUserStatus(userID)));
+                    input.close();
+                } else {
+                    // Nếu không có avatar, tạo với mảng byte rỗng
+                    list.add(new Model_User_Account(userID, userName, gender, new byte[0], checkUserStatus(userID)));
+                }
+            }
+            System.out.println("Tìm thấy " + list.size() + " người chưa kết bạn");
+        } catch (SQLException e) {
+            System.err.println("Lỗi SQL khi tìm kiếm người chưa kết bạn: " + e.getMessage());
+            throw e;
+        } catch (IOException e) {
+            System.err.println("Lỗi IO khi đọc avatar: " + e.getMessage());
+            throw e;
+        } finally {
+            if (r != null) r.close();
+            if (p != null) p.close();
+        }
+        
+        return list;
+    }
 }

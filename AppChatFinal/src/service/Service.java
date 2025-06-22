@@ -233,12 +233,16 @@ public class Service {
     
     public void setRecoder(Recoder aRecoder) {
         recoder = aRecoder;
-    }
-    
-    // Method to search users by username
+    }    // Method to search users by username
     public void searchUsers(String searchText, component.FriendSearchPanel.SearchCallback callback) {
         System.out.println("Đang tìm kiếm người dùng: " + searchText);
-        client.emit("search_users", searchText, new Ack() {
+        
+        // Create request data with searchText and currentUserID
+        java.util.Map<String, Object> requestData = new java.util.HashMap<>();
+        requestData.put("searchText", searchText);
+        requestData.put("currentUserID", user != null ? user.getUserID() : 0);
+        
+        client.emit("search_users", requestData, new Ack() {
             @Override
             public void call(Object... os) {
                 System.out.println("Nhận phản hồi từ server, số lượng tham số: " + os.length);
