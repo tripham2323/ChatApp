@@ -57,11 +57,22 @@ public class Service {
        recoder = new Recoder();
     }
 
-    public void startServer() {
-            //xóa file cache trong folder client_data
-             File f = new File("client_data");
-        for (File fs : f.listFiles()) {
-            fs.delete();
+//    public void startServer() {
+//            //xóa file cache trong folder client_data
+//             File f = new File("client_data");
+//        for (File fs : f.listFiles()) {
+//            fs.delete();
+//        }
+        
+           public void startServer(){
+         File f = new File("client_data");
+        if (f.exists() && f.isDirectory()) {
+            File[] files = f.listFiles();
+            if (files != null) {
+                for (File fs : files) {
+                    fs.delete();
+                }
+            }
         }
         
         try {

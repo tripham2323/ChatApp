@@ -62,11 +62,15 @@ public class Service {
         serviceFile = new ServiceFile();
         listClient = new ArrayList<>();
         ByteOutputStream = new ByteArrayOutputStream();
-    }
-    public void startServer(){
+    }    public void startServer(){
          File f = new File("server_data");
-        for (File fs : f.listFiles()) {
-            fs.delete();
+        if (f.exists() && f.isDirectory()) {
+            File[] files = f.listFiles();
+            if (files != null) {
+                for (File fs : files) {
+                    fs.delete();
+                }
+            }
         }
         
         
