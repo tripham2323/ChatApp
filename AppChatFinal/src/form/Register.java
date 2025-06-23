@@ -17,12 +17,12 @@ public class Register extends javax.swing.JPanel {
 
     /**
      * Creates new form Register
-     */
-    public Register() {
+     */    public Register() {
         initComponents();
         CustomButtonRegistry();
-    }
-    private void CustomButtonRegistry(){
+        CustomButtonBackLogin();
+        init();
+    }    private void CustomButtonRegistry(){
         cmdRegistry.setBackground(new java.awt.Color(104, 88, 219));
         cmdRegistry.setForeground(new java.awt.Color(255, 255, 255));
         cmdRegistry.setText("Đăng ký");
@@ -30,14 +30,45 @@ public class Register extends javax.swing.JPanel {
         cmdRegistry.setColorOver(new java.awt.Color(219, 74, 131));
         cmdRegistry.setFillBorder(30);
         cmdRegistry.setFocusable(false);
+        cmdRegistry.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         
         jLabel1.setVisible(false);
-    
     }
-    private void init(){
-       
-        
     
+    private void CustomButtonBackLogin(){
+        cmdBackLogin.setContentAreaFilled(false); // Không hiển thị nền
+        cmdBackLogin.setBorderPainted(false); // Không hiển thị viền
+        cmdBackLogin.setForeground(new java.awt.Color(104, 88, 219)); // Màu tím giống button registry
+        cmdBackLogin.setText("Đăng Nhập Ngay");
+        cmdBackLogin.setFont(new java.awt.Font("iCiel Mijas", java.awt.Font.BOLD, 14)); // Font đậm
+        cmdBackLogin.setFocusable(false);
+        cmdBackLogin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        cmdBackLogin.setOpaque(false); // Đảm bảo button hoàn toàn trong suốt
+    }    private void init(){
+        CustomTextFields();
+    }
+    
+    private void CustomTextFields(){
+        // Tùy chỉnh ô Username
+        txtUserName.setOpaque(false); // Nền trong suốt
+        txtUserName.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 0, 2, 0, new java.awt.Color(104, 88, 219))); // Chỉ có border dưới
+        txtUserName.setBackground(new java.awt.Color(0, 0, 0, 0)); // Nền hoàn toàn trong suốt
+        txtUserName.setFont(new java.awt.Font("iCiel Mijas", 0, 14));
+        txtUserName.setForeground(new java.awt.Color(60, 60, 60));
+        
+        // Tùy chỉnh ô Password
+        txtPass.setOpaque(false); // Nền trong suốt
+        txtPass.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 0, 2, 0, new java.awt.Color(104, 88, 219))); // Chỉ có border dưới
+        txtPass.setBackground(new java.awt.Color(0, 0, 0, 0)); // Nền hoàn toàn trong suốt
+        txtPass.setFont(new java.awt.Font("iCiel Mijas", 0, 14));
+        txtPass.setForeground(new java.awt.Color(60, 60, 60));
+        
+        // Tùy chỉnh ô Confirm Password
+        txtRepass.setOpaque(false); // Nền trong suốt
+        txtRepass.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 0, 2, 0, new java.awt.Color(104, 88, 219))); // Chỉ có border dưới
+        txtRepass.setBackground(new java.awt.Color(0, 0, 0, 0)); // Nền hoàn toàn trong suốt
+        txtRepass.setFont(new java.awt.Font("iCiel Mijas", 0, 14));
+        txtRepass.setForeground(new java.awt.Color(60, 60, 60));
     }
 
     /**
@@ -51,24 +82,16 @@ public class Register extends javax.swing.JPanel {
 
         pictureBox1 = new swing.PictureBox();
         jLayeredPane1 = new javax.swing.JLayeredPane();
-        cmdBackLogin = new javax.swing.JButton();
         cmdRegistry = new swing.Button();
         txtUserName = new javax.swing.JTextField();
         txtPass = new javax.swing.JPasswordField();
         txtRepass = new javax.swing.JPasswordField();
         jLabel1 = new javax.swing.JLabel();
+        cmdBackLogin = new javax.swing.JButton();
 
         setBackground(new java.awt.Color(255, 255, 255));
 
         pictureBox1.setImage(new javax.swing.ImageIcon(getClass().getResource("/icon/register.png"))); // NOI18N
-
-        cmdBackLogin.setContentAreaFilled(false);
-        cmdBackLogin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        cmdBackLogin.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                cmdBackLoginActionPerformed(evt);
-            }
-        });
 
         cmdRegistry.setFont(new java.awt.Font("iCiel Mijas", 0, 15)); // NOI18N
         cmdRegistry.addActionListener(new java.awt.event.ActionListener() {
@@ -83,7 +106,6 @@ public class Register extends javax.swing.JPanel {
 
         txtRepass.setBorder(null);
 
-        jLayeredPane1.setLayer(cmdBackLogin, javax.swing.JLayeredPane.DEFAULT_LAYER);
         jLayeredPane1.setLayer(cmdRegistry, javax.swing.JLayeredPane.DEFAULT_LAYER);
         jLayeredPane1.setLayer(txtUserName, javax.swing.JLayeredPane.DEFAULT_LAYER);
         jLayeredPane1.setLayer(txtPass, javax.swing.JLayeredPane.DEFAULT_LAYER);
@@ -97,10 +119,6 @@ public class Register extends javax.swing.JPanel {
                 .addContainerGap()
                 .addGroup(jLayeredPane1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(txtUserName, javax.swing.GroupLayout.PREFERRED_SIZE, 294, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jLayeredPane1Layout.createSequentialGroup()
-                        .addGap(166, 166, 166)
-                        .addComponent(cmdBackLogin, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addGap(48, 48, 48))
                     .addComponent(txtPass)
                     .addComponent(txtRepass)))
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jLayeredPane1Layout.createSequentialGroup()
@@ -118,9 +136,7 @@ public class Register extends javax.swing.JPanel {
                 .addComponent(txtRepass, javax.swing.GroupLayout.DEFAULT_SIZE, 25, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
                 .addComponent(cmdRegistry, javax.swing.GroupLayout.DEFAULT_SIZE, 30, Short.MAX_VALUE)
-                .addGap(18, 18, 18)
-                .addComponent(cmdBackLogin, javax.swing.GroupLayout.DEFAULT_SIZE, 11, Short.MAX_VALUE)
-                .addContainerGap())
+                .addGap(35, 35, 35))
         );
 
         pictureBox1.add(jLayeredPane1);
@@ -132,6 +148,17 @@ public class Register extends javax.swing.JPanel {
         jLabel1.setText("jLabel1");
         pictureBox1.add(jLabel1);
         jLabel1.setBounds(620, 450, 310, 20);
+
+        cmdBackLogin.setFont(new java.awt.Font("Segoe UI", 1, 10)); // NOI18N
+        cmdBackLogin.setContentAreaFilled(false);
+        cmdBackLogin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        cmdBackLogin.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                cmdBackLoginActionPerformed(evt);
+            }
+        });
+        pictureBox1.add(cmdBackLogin);
+        cmdBackLogin.setBounds(760, 440, 218, 10);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);

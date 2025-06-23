@@ -16,10 +16,10 @@ public class P_Login extends javax.swing.JPanel {
 
     /**
      * Creates new form Login
-     */
-    public P_Login() {
+     */    public P_Login() {
         initComponents();
         CustomButtonLogin();
+        CustomButtonRegister();
         init();
     }
     private void CustomButtonLogin(){
@@ -30,9 +30,34 @@ public class P_Login extends javax.swing.JPanel {
         cmdLogin.setColorOver(new java.awt.Color(219, 74, 131));
         cmdLogin.setFillBorder(30);
         cmdLogin.setFocusable(false);
+        cmdLogin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+    }      private void CustomButtonRegister(){
+        cmdRegister.setContentAreaFilled(false); // Không hiển thị nền
+        cmdRegister.setBorderPainted(false); // Không hiển thị viền
+        cmdRegister.setForeground(new java.awt.Color(104, 88, 219)); // Màu tím giống button login
+        cmdRegister.setText("Đăng Ký");
+        cmdRegister.setFont(new java.awt.Font("iCiel Mijas", java.awt.Font.BOLD, 14)); // Font đậm
+        cmdRegister.setFocusable(false);
+        cmdRegister.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        cmdRegister.setOpaque(false); // Đảm bảo button hoàn toàn trong suốt
+    }private void init(){
+        CustomTextFields();
     }
-    private void init(){
-
+    
+    private void CustomTextFields(){
+        // Tùy chỉnh ô Username
+        txtUserName.setOpaque(false); // Nền trong suốt
+        txtUserName.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 0, 2, 0, new java.awt.Color(104, 88, 219))); // Chỉ có border dưới
+        txtUserName.setBackground(new java.awt.Color(0, 0, 0, 0)); // Nền hoàn toàn trong suốt
+        txtUserName.setFont(new java.awt.Font("iCiel Mijas", 0, 14));
+        txtUserName.setForeground(new java.awt.Color(60, 60, 60));
+        
+        // Tùy chỉnh ô Password
+        txtPass.setOpaque(false); // Nền trong suốt
+        txtPass.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 0, 2, 0, new java.awt.Color(104, 88, 219))); // Chỉ có border dưới
+        txtPass.setBackground(new java.awt.Color(0, 0, 0, 0)); // Nền hoàn toàn trong suốt
+        txtPass.setFont(new java.awt.Font("iCiel Mijas", 0, 14));
+        txtPass.setForeground(new java.awt.Color(60, 60, 60));
     }
 
     /**
@@ -85,16 +110,17 @@ public class P_Login extends javax.swing.JPanel {
         jLayeredPane1Layout.setVerticalGroup(
             jLayeredPane1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jLayeredPane1Layout.createSequentialGroup()
-                .addGap(20, 20, 20)
-                .addComponent(txtUserName, javax.swing.GroupLayout.DEFAULT_SIZE, 18, Short.MAX_VALUE)
-                .addGap(42, 42, 42)
-                .addComponent(txtPass)
-                .addGap(44, 44, 44))
+                .addContainerGap()
+                .addComponent(txtUserName, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(30, 30, 30)
+                .addComponent(txtPass, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(44, Short.MAX_VALUE))
         );
 
         pictureBox1.add(jLayeredPane1);
-        jLayeredPane1.setBounds(660, 220, 330, 140);
+        jLayeredPane1.setBounds(650, 220, 330, 140);
 
+        cmdRegister.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         cmdRegister.setContentAreaFilled(false);
         cmdRegister.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         cmdRegister.addActionListener(new java.awt.event.ActionListener() {
@@ -103,7 +129,7 @@ public class P_Login extends javax.swing.JPanel {
             }
         });
         pictureBox1.add(cmdRegister);
-        cmdRegister.setBounds(820, 390, 73, 23);
+        cmdRegister.setBounds(810, 390, 110, 23);
 
         cmdLogin.setForeground(new java.awt.Color(44, 44, 44));
         cmdLogin.setText("Đăng Nhập");
