@@ -56,15 +56,21 @@ public class Model_Send_Message {
      */
     public void setToUserID(int toUserID) {
         this.toUserID = toUserID;
-    }
-
-    /**
+    }    /**
      * @return the text
      */
     public String getText() {
         return text;
     }
-       /**
+
+    /**
+     * @param text the text to set
+     */
+    public void setText(String text) {
+        this.text = text;
+    }
+
+    /**
      * @return the file
      */
     public Model_File_Sender getFile() {
@@ -77,13 +83,7 @@ public class Model_Send_Message {
     public void setFile(Model_File_Sender file) {
         this.file = file;
     }
-
-    /**
-     * @param text the text to set
-     */
-    public void setText(String text) {
-        this.text = text;
-    }
+    
     private MessageType messageType;
     private int fromUserID;
     private int toUserID;
@@ -95,9 +95,7 @@ public class Model_Send_Message {
         this.fromUserID = fromUserID;
         this.toUserID = toUserID;
         this.text = text;
-    }
-
-    public JSONObject toJSONObject(){
+    }    public JSONObject toJSONObject(){
         try {
             JSONObject json = new JSONObject();
             json.put("messageType", messageType.getValue());

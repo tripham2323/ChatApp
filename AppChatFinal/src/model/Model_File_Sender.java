@@ -46,43 +46,55 @@ public class Model_File_Sender {
         }else{ // đã đọc xong file
            return null;
         }
-    }
-    public void initSend() throws IOException {
+    }    public void initSend() throws IOException {
+        System.out.println("*** FILE_SENDER: initSend() called ***");
+        System.out.println("Message: " + message.getText());
         socket.emit("send_to_user", message.toJSONObject(), new Ack() {
             @Override
             public void call(Object... os) {
+                System.out.println("*** FILE_SENDER: initSend callback received ***");
+                System.out.println("Callback args length: " + os.length);
                 if (os.length > 0){
+                   System.out.println("FileID received: " + os[0]);
                    int fileID = (int) os[0]; //nhận id file từ server
                     try {
                         startSend(fileID);
                     } catch (IOException e) {
+                        System.err.println("Error in startSend: " + e.getMessage());
                         e.printStackTrace();
                     }
+                } else {
+                    System.err.println("*** FILE_SENDER: No callback data received! ***");
                 }
                 
                 }
         });
        
-    }
-    public void startSend(int fileID) throws IOException {
+    }    public void startSend(int fileID) throws IOException {
         
         this.fileID = fileID;
         if(event != null){
            event.onStartSending();
         }
         sendingFile();
-    
     }
+    
     private void sendingFile() throws IOException {
+        System.out.println("*** FILE_SENDER: sendingFile() called ***");
+        System.out.println("FileID: " + fileID);
+        System.out.println("File pointer: " + accFile.getFilePointer() + "/" + fileSize);
+        
         Model_Package_Sender data = new Model_Package_Sender();
         data.setFileID(fileID);
         data.setFromUserID(Service.getInstance().getUser().getUserID());
         data.setFileName(fileName);
         byte[] bytes = readFile(); //đọc file, trả về biến data chứa dữ liệu đọc từ file đã chọn theo type byte[]
         if (bytes != null){
+           System.out.println("*** FILE_SENDER: Read " + bytes.length + " bytes ***");
            data.setData(bytes);
            data.setFinish(false);
         }else{
+           System.out.println("*** FILE_SENDER: File reading finished ***");
            data.setFinish(true);
            close();
         
@@ -90,27 +102,36 @@ public class Model_File_Sender {
         socket.emit("send_file", data.toJsonObject(), new Ack() {
             @Override
             public void call(Object... os) {
+                System.out.println("*** FILE_SENDER: send_file callback received ***");
+                System.out.println("Callback args length: " + os.length);
                 if(os.length > 0){
                     boolean act = (boolean) os[0];
+                    System.out.println("Server response: " + act);
                     if (act) {
                         try {
                             if(!data.isFinish()){
+                                 System.out.println("*** FILE_SENDER: Continuing to send next chunk ***");
                                  if(event != null){
                                     event.onSending(getPercentage());
                                  }
                                sendingFile();   
                             }else{
                               //send file finish
+                               System.out.println("*** FILE_SENDER: File sending completed ***");
                                Service.getInstance().fileSendFinish(Model_File_Sender.this);
                                 if(event != null){
                                     event.onFinish();
                                  }
                             }
                         } catch (IOException e) {
+                           System.err.println("Error in sendingFile callback: " + e.getMessage());
                            e.printStackTrace();
                         }
+                    } else {
+                        System.err.println("*** FILE_SENDER: Server rejected the file chunk! ***");
                     }
-                
+                } else {
+                    System.err.println("*** FILE_SENDER: No callback data from send_file! ***");
                 }
                }
         });
