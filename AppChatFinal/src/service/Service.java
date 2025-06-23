@@ -274,6 +274,39 @@ public class Service {
             error(e);
         }
     }
+      // Method to process group message data from Map
+    private void processGroupMessageData(java.util.Map<String, Object> messageData) {
+        try {
+            System.out.println("Processing group message data: " + messageData);
+            
+            // Extract message data
+            int messageType = (Integer) messageData.get("messageType");
+            int fromUserID = (Integer) messageData.get("fromUserID");
+            String text = (String) messageData.get("text");
+            boolean isGroupMessage = (Boolean) messageData.get("isGroupMessage");
+            int groupID = (Integer) messageData.get("groupID");
+            
+            // Extract sender info
+            String senderName = (String) messageData.get("senderName");
+            String senderAvatar = (String) messageData.get("senderAvatar");
+            
+            // Create sender info
+            Model_User_Account senderInfo = new Model_User_Account();
+            senderInfo.setUserID(fromUserID);
+            senderInfo.setUserName(senderName != null ? senderName : "Unknown");
+            // Skip setting image for now since it expects byte[] but we have String
+            
+            // Create message object
+            Model_Receive_Message message = new Model_Receive_Message(MessageType.values()[messageType], fromUserID, text);
+            
+            // Pass the message to the chat UI with sender info
+            PublicEvent.getInstance().getEventChat().receiveGroupMessage(message, senderInfo, groupID);
+            
+        } catch (Exception e) {
+            System.err.println("Error processing group message data: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
     
     public Model_File_Sender addFile(File file, Model_Send_Message message) throws IOException {
         Model_File_Sender data = new Model_File_Sender(file, client, message);

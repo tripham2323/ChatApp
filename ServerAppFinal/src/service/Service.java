@@ -134,14 +134,50 @@ public class Service {
                     userDisconnect(userID);
                 }
                 
-               }
-        });
-        server.addEventListener("send_to_user", Model_Send_Message.class, new DataListener<Model_Send_Message>() {
+               }        });
+          // TEMPORARY DEBUG: Use Object.class to catch all send_to_user events        System.out.println("=== REGISTERING send_to_user EVENT LISTENER (MAP) ===");
+        server.addEventListener("send_to_user", java.util.Map.class, new DataListener<java.util.Map>() {
             @Override
-            public void onData(SocketIOClient socketClient, Model_Send_Message t, AckRequest ar) throws Exception {
-                sendToClient(t, ar);
-               }
+            public void onData(SocketIOClient socketClient, java.util.Map messageData, AckRequest ar) throws Exception {
+                System.out.println("=== SERVER RECEIVED send_to_user EVENT (MAP) ===");
+                System.out.println("Message Data: " + messageData);
+                System.out.println("From UserID: " + messageData.get("fromUserID"));
+                System.out.println("To UserID: " + messageData.get("toUserID"));
+                System.out.println("Message Type: " + messageData.get("messageType"));
+                System.out.println("Message Text: " + messageData.get("text"));
+                System.out.println("Socket Client ID: " + socketClient.getSessionId());
+                  // Convert Map to Model_Send_Message
+                try {
+                    // Handle messageType conversion from String to int
+                    String messageTypeStr = (String) messageData.get("messageType");
+                    int messageType;
+                    if ("TEXT".equals(messageTypeStr)) {
+                        messageType = 0; // MessageType.TEXT
+                    } else if ("IMAGE".equals(messageTypeStr)) {
+                        messageType = 1; // MessageType.IMAGE
+                    } else if ("FILE".equals(messageTypeStr)) {  
+                        messageType = 2; // MessageType.FILE
+                    } else {
+                        messageType = 0; // Default to TEXT
+                    }
+                    
+                    int fromUserID = (Integer) messageData.get("fromUserID");
+                    int toUserID = (Integer) messageData.get("toUserID");
+                    String text = (String) messageData.get("text");
+                    
+                    Model_Send_Message data = new Model_Send_Message(messageType, fromUserID, toUserID, text);
+                    System.out.println("*** CONVERTED TO MODEL_SEND_MESSAGE SUCCESSFULLY ***");
+                    System.out.println("Message Type Int: " + messageType);
+                    
+                    sendToClient(data, ar);
+                    System.out.println("*** SENT TO CLIENT ***");
+                } catch (Exception e) {
+                    System.err.println("ERROR converting Map to Model_Send_Message: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
         });
+        System.out.println("=== send_to_user EVENT LISTENER (MAP) REGISTERED ===");
         
         server.addEventListener("send_file", Model_Package_Sender.class, new DataListener<Model_Package_Sender>() {
             @Override
@@ -658,15 +694,33 @@ public class Service {
                 
             } catch (Exception e) {
                  e.printStackTrace();
-            }
-        }else{            
+            }        }else{            
+             System.out.println("=== SENDING MESSAGE TO CLIENT ===");
+             System.out.println("Message Type: " + data.getMessageType());
+             System.out.println("From UserID: " + data.getFromUserID());
+             System.out.println("To UserID: " + data.getToUserID());
+             System.out.println("Message Text: " + data.getText());
+             System.out.println("Total clients: " + listClient.size());
+             
+             boolean clientFound = false;
              for(Model_Client c:listClient){
-            if(c.getUser().getUserID() == data.getToUserID()){
-               c.getClient().sendEvent("receive_ms", new Model_Receive_Message(data.getMessageType(), data.getFromUserID(), data.getText(), null));
-               break;
-            }
-        
-        } 
+                System.out.println("Checking client with UserID: " + c.getUser().getUserID());
+                if(c.getUser().getUserID() == data.getToUserID()){
+                   System.out.println("*** FOUND TARGET CLIENT! SENDING MESSAGE ***");
+                   c.getClient().sendEvent("receive_ms", new Model_Receive_Message(data.getMessageType(), data.getFromUserID(), data.getText(), null));
+                   clientFound = true;
+                   break;
+                }
+             } 
+             
+             if (!clientFound) {
+                 System.out.println("*** ERROR: TARGET CLIENT NOT FOUND! ***");
+                 System.out.println("Looking for UserID: " + data.getToUserID());
+                 System.out.println("Available clients:");
+                 for(Model_Client c:listClient){
+                     System.out.println("- UserID: " + c.getUser().getUserID() + ", UserName: " + c.getUser().getUserName());
+                 }
+             }
         }
         
        

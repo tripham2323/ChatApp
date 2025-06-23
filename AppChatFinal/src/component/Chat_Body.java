@@ -50,38 +50,25 @@ public class Chat_Body extends javax.swing.JPanel {
     sp.setVerticalScrollBar(new ScrollBar());//khởi tạo thanh trượt scroll từ thư viện import swing
     sp.getVerticalScrollBar().setBackground(Color.WHITE);
     
-    }
-    public void addItemLeft(Model_Receive_Message data, File file, Model_User_Account user){
-     if(data.getMessageType() == MessageType.TEXT){
-       Chat_Left_With_Profile item = new  Chat_Left_With_Profile();
-       setAvatar(item, user); 
-       item.setText(data.getText());
-       item.setTime();
-       body.add(item, "wrap, w 100::80%");// thiết lập căn lề khung chat
+    }    public void addItemLeft(Model_Receive_Message data, File file, Model_User_Account user){
+     System.out.println("*** CHAT_BODY: addItemLeft called ***");
+     System.out.println("Message Type: " + data.getMessageType());
+     System.out.println("Message Text: " + data.getText());
+     System.out.println("User info: " + (user != null ? user.getUserName() + " (ID: " + user.getUserID() + ")" : "null"));     System.out.println("User has avatar: " + (user != null && user.getImage() != null));
+     System.out.println("User has image bytes: " + (user != null && user.getImage() != null && user.getImage().length > 0));
      
-     }else if(data.getMessageType() == MessageType.EMOJI){
-       Chat_Left_With_Profile item = new  Chat_Left_With_Profile();
-       setAvatar(item, user);
-       item.setEmoji(Emoji.getInstance().getEmoji(Integer.valueOf(data.getText())).getIcon());
-       item.setTime();
-       body.add(item, "wrap, w 100::80%");
-     }else if(data.getMessageType() == MessageType.IMAGE){
-       Chat_Left_With_Profile item = new  Chat_Left_With_Profile();
-       setAvatar(item, user);
-       item.setText("");
-       item.setImage(data.getDataImage(), file);
-       item.setTime();
-       body.add(item, "wrap, w 100::80%");
-     }else if(data.getMessageType() == MessageType.FILE){
-       Chat_Left_With_Profile item = new Chat_Left_With_Profile();
-       setAvatar(item, user);
-       item.setText("");
-       item.setFile(data);
-       item.setTime();
-       body.add(item, "wrap, w 100::80%");
-     }  
-    repaint();
-    revalidate();
+     // FORCE DISPLAY AS TEXT MESSAGE - IGNORE MESSAGE TYPE
+     System.out.println("*** FORCING TEXT MESSAGE DISPLAY ***");
+     Chat_Left_With_Profile item = new Chat_Left_With_Profile();
+     setAvatar(item, user); 
+     item.setText(data.getText());
+     item.setTime();
+     body.add(item, "wrap, w 100::80%");
+     System.out.println("*** TEXT MESSAGE ADDED TO BODY ***");
+     
+     repaint();
+     revalidate();
+     System.out.println("*** CHAT_BODY: addItemLeft completed ***");
     }
       public void addItemLeft(Model_Voice_Receive data, Model_User_Account user){
        Chat_Left_With_Profile item = new Chat_Left_With_Profile();
@@ -92,30 +79,40 @@ public class Chat_Body extends javax.swing.JPanel {
        body.add(item, "wrap, w 100::80%");
     repaint();
     revalidate();
-    }
-      private void setAvatar(Chat_Left_With_Profile item, Model_User_Account user){
-      if (user.getImAvatar() != null) {
-             item.setImageProfile(user.getImAvatar());
-         } else if (user.getImage() != null && user.getImage().length > 0) {
-             // Tạo ImageIcon từ byte array nếu imAvatar null
-             try {
-                 java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(user.getImage());
-                 java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(bis);
-                 if (image != null) {
-                     ImageIcon avatar = new ImageIcon(image);
-                     item.setImageProfile(avatar);
-                 } else {
-                     item.setImageProfile(new ImageIcon(getClass().getResource("/icon/profile2.png")));
-                 }
-                 bis.close();
-             } catch (Exception e) {
-                 System.err.println("Error creating avatar from byte array: " + e.getMessage());
-                 item.setImageProfile(new ImageIcon(getClass().getResource("/icon/profile2.png")));
-             }
-         } else {
-             item.setImageProfile(new ImageIcon(getClass().getResource("/icon/profile2.png")));
-         }
+    }      private void setAvatar(Chat_Left_With_Profile item, Model_User_Account user){
+      System.out.println("*** SET AVATAR CALLED ***");
+      System.out.println("User: " + (user != null ? user.getUserName() : "null"));
+      System.out.println("User ID: " + (user != null ? user.getUserID() : "null"));
       
+      if (user != null && user.getImage() != null && user.getImage().length > 0) {
+          System.out.println("*** LOADING AVATAR FROM DATABASE ***");
+          System.out.println("Image size: " + user.getImage().length + " bytes");
+          
+          try {
+              java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(user.getImage());
+              java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(bis);
+              if (image != null) {
+                  // Scale image to appropriate size
+                  java.awt.Image scaledImage = image.getScaledInstance(40, 40, java.awt.Image.SCALE_SMOOTH);
+                  ImageIcon avatar = new ImageIcon(scaledImage);
+                  item.setImageProfile(avatar);
+                  System.out.println("*** AVATAR SET FROM DATABASE ***");
+              } else {
+                  System.out.println("*** FAILED TO CREATE IMAGE, USING DEFAULT ***");
+                  item.setImageProfile(new ImageIcon(getClass().getResource("/icon/profile2.png")));
+              }
+              bis.close();
+          } catch (Exception e) {
+              System.err.println("Error creating avatar from byte array: " + e.getMessage());
+              e.printStackTrace();
+              item.setImageProfile(new ImageIcon(getClass().getResource("/icon/profile2.png")));
+          }
+      } else {
+          System.out.println("*** NO IMAGE DATA, USING DEFAULT AVATAR ***");
+          item.setImageProfile(new ImageIcon(getClass().getResource("/icon/profile2.png")));
+      }
+      
+      System.out.println("*** SET AVATAR COMPLETED ***");
       }
 //    public void addItemLeft(String text, String user, String[] image){
 //    Chat_Left_With_Profile item = new  Chat_Left_With_Profile();

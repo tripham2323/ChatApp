@@ -94,12 +94,11 @@ public class MenuGroup extends JPanel {
         groupListPanel.add(emptyPanel);
         groupListPanel.revalidate();
         groupListPanel.repaint();
-    }
-      private void showCreateGroupDialog(ActionEvent e) {
+    }      private void showCreateGroupDialog(ActionEvent e) {
         // First, get user's friends list
-        service.Service.getInstance().getFriendsList(new service.Service.FriendListCallback() {
+        service.Service.getInstance().getFriendsList(new service.Service.FriendsListCallback() {
             @Override
-            public void onSuccess(List<Model_User_Account> friends) {
+            public void onResult(List<Model_User_Account> friends) {
                 SwingUtilities.invokeLater(() -> {
                     Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(MenuGroup.this);
                     CreateGroupDialog dialog = new CreateGroupDialog(parentFrame, friends);
