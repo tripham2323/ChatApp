@@ -708,6 +708,26 @@ public class Service {
                 }
             }
         });
+        
+        // Get group member count event handler
+        server.addEventListener("get_group_member_count", Integer.class, new DataListener<Integer>() {
+            @Override
+            public void onData(SocketIOClient socketClient, Integer groupID, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== SERVER RECEIVED GET_GROUP_MEMBER_COUNT REQUEST ===");
+                    System.out.println("Group ID: " + groupID);
+                    
+                    int memberCount = serviceUser.getGroupMemberCount(groupID);
+                    System.out.println("Group " + groupID + " has " + memberCount + " members");
+                    
+                    ar.sendAckData(true, memberCount);
+                    textArea.append("Group member count retrieved for GroupID: " + groupID + " (" + memberCount + " members)\n");
+                } catch (Exception e) {
+                    ar.sendAckData(false, "Error retrieving group member count: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        });
 
         server.start();
         textArea.append("Server bắt đầu khởi tạo trên cổng : "+PORT_NUMBER+"\n");

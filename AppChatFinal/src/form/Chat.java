@@ -177,17 +177,10 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
 
     }    public void setUser(Model_User_Account user){
         this.user = user;
-        chatTitle.setUserName(user);
-        chatBottom.setUser(user);
-
-        // Xóa nội dung chat hiện tại
-        chatBody.clearChat();
-
+        
         // Kiểm tra xem có phải chat nhóm không
+        boolean isGroupChat = false;
         if (user != null && user.getUserID() > 0) {
-            // Kiểm tra xem có phải group chat không bằng cách kiểm tra isGroup
-            // Nếu không có method isGroup, có thể kiểm tra qua tên hoặc ID đặc biệt
-            boolean isGroupChat = false;
             try {
                 // Thử gọi method isGroup nếu có
                 isGroupChat = user.isGroup();
@@ -198,7 +191,44 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
                              (user.getUserName().startsWith("Group:") || 
                               user.getUserName().equals("test")); // Tạm thời check theo tên
             }
-              if (isGroupChat) {
+        }
+        
+        if (isGroupChat) {
+            // Đây là group chat - sử dụng setGroupName và lấy member count
+            System.out.println("=== setUser DETECTED GROUP CHAT ===");
+            System.out.println("Group ID: " + user.getUserID());
+            System.out.println("Group Name: " + user.getUserName());
+            
+            chatTitle.setGroupName(user);
+            chatBottom.setUser(user);
+            
+            // Lấy số lượng thành viên cho group
+            service.Service.getInstance().getGroupMemberCount(user.getUserID(), new service.Service.GroupMemberCountCallback() {
+                @Override
+                public void onSuccess(int memberCount) {
+                    System.out.println("=== setUser GROUP MEMBER COUNT RECEIVED ===");
+                    System.out.println("Group " + user.getUserID() + " has " + memberCount + " members");
+                    chatTitle.setMemberCount(memberCount);
+                }
+                
+                @Override
+                public void onError(String error) {
+                    System.err.println("=== setUser ERROR GETTING GROUP MEMBER COUNT ===");
+                    System.err.println("Error: " + error);
+                    // Fallback to default text
+                    chatTitle.setMemberCount(0);
+                }
+            });
+        } else {
+            // Chat cá nhân bình thường
+            chatTitle.setUserName(user);
+            chatBottom.setUser(user);
+        }        // Xóa nội dung chat hiện tại
+        chatBody.clearChat();
+
+        // Load chat history based on type (group or individual)
+        if (user != null && user.getUserID() > 0) {
+            if (isGroupChat) {
                 System.out.println("=== LOADING GROUP CHAT HISTORY ===");
                 System.out.println("Group ID: " + user.getUserID());
                 System.out.println("Group Name: " + user.getUserName());
@@ -221,17 +251,39 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
     public void updateUser(Model_User_Account user){
         chatTitle.updateUser(user);
 
-    }
-    
-    // Method to set user for group chat (group info)
+    }    // Method to set user for group chat (group info)
     public void setGroup(Model_Group_Chat group) {
+        System.out.println("=== SETTING GROUP ===");
+        System.out.println("Group ID: " + group.getGroupID());
+        System.out.println("Group Name: " + group.getGroupName());
+        
         this.user = new Model_User_Account(); // Create a fake user object for group
         this.user.setUserID(group.getGroupID());
         this.user.setUserName(group.getGroupName());
         this.user.setStatus(true); // Groups are always "online"
         
-        chatTitle.setUserName(this.user);
+        System.out.println("=== CALLING setGroupName ===");
+        chatTitle.setGroupName(this.user);
         chatBottom.setUser(this.user);
+        
+        System.out.println("=== CALLING getGroupMemberCount ===");
+        // Get and display group member count
+        service.Service.getInstance().getGroupMemberCount(group.getGroupID(), new service.Service.GroupMemberCountCallback() {
+            @Override
+            public void onSuccess(int memberCount) {
+                System.out.println("=== GROUP MEMBER COUNT RECEIVED ===");
+                System.out.println("Group " + group.getGroupID() + " has " + memberCount + " members");
+                System.out.println("=== CALLING setMemberCount ===");
+                chatTitle.setMemberCount(memberCount);
+            }
+            
+            @Override
+            public void onError(String error) {
+                System.err.println("Error getting group member count: " + error);
+                // Fallback to default status text
+                chatTitle.setMemberCount(0);
+            }
+        });
         
         // Clear current chat content
         chatBody.clearChat();

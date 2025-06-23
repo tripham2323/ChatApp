@@ -831,4 +831,29 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
         
         return messages;
     }
+    
+    // Get group member count only
+    public int getGroupMemberCount(int groupID) throws SQLException {
+        PreparedStatement p = null;
+        ResultSet r = null;
+        
+        try {
+            p = con.prepareStatement("SELECT COUNT(*) as member_count FROM group_members WHERE GroupID = ?");
+            p.setInt(1, groupID);
+            r = p.executeQuery();
+            
+            if (r.next()) {
+                return r.getInt("member_count");
+            }
+            
+            return 0;
+        } finally {
+            if (r != null) {
+                r.close();
+            }
+            if (p != null) {
+                p.close();
+            }
+        }
+    }
 }

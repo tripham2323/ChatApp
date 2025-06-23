@@ -1227,6 +1227,51 @@ public class Service {
         void onError(String error);
     }
 
+    // Method to get group member count
+    public void getGroupMemberCount(int groupID, GroupMemberCountCallback callback) {
+        if (user == null) {
+            callback.onError("User not logged in");
+            return;
+        }
+        
+        System.out.println("=== CLIENT REQUESTING GROUP MEMBER COUNT FOR GROUP " + groupID + " ===");
+        
+        client.emit("get_group_member_count", groupID, new Ack() {
+            @Override
+            public void call(Object... os) {
+                System.out.println("=== CLIENT RECEIVED GROUP MEMBER COUNT RESPONSE ===");
+                System.out.println("Response objects: " + os.length);
+                
+                if (os.length > 0) {
+                    boolean success = (Boolean) os[0];
+                    System.out.println("Success: " + success);
+                    
+                    if (success && os.length > 1) {
+                        try {
+                            int memberCount = ((Number) os[1]).intValue();
+                            System.out.println("Group " + groupID + " has " + memberCount + " members");
+                            callback.onSuccess(memberCount);
+                        } catch (Exception e) {
+                            System.err.println("Error parsing member count: " + e.getMessage());
+                            e.printStackTrace();
+                            callback.onError("Error parsing member count: " + e.getMessage());
+                        }
+                    } else {
+                        String error = os.length > 1 ? (String) os[1] : "No member count found";
+                        callback.onError(error);
+                    }
+                } else {
+                    callback.onError("No response from server");
+                }
+            }
+        });
+    }
+    
+    public interface GroupMemberCountCallback {
+        void onSuccess(int memberCount);
+        void onError(String error);
+    }
+
     private void error(Exception e) {
         System.err.println(e);
     }

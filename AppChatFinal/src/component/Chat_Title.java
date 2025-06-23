@@ -51,6 +51,22 @@ public class Chat_Title extends javax.swing.JPanel {
         lbStatus.setText(text);
          lbStatus.setForeground(new Color(160, 160, 160));
     }
+    // Method to set member count for group chat
+    public void setMemberCount(int memberCount) {
+        if (memberCount == 1) {
+            lbStatus.setText("1 thành viên");
+        } else {
+            lbStatus.setText(memberCount + " thành viên");
+        }
+        lbStatus.setForeground(new java.awt.Color(2, 142, 83));
+    }
+    
+    // Method to set group name for group chat (without setting status)
+    public void setGroupName(Model_User_Account groupUser) {
+        this.user = groupUser;
+        lbName.setText(groupUser.getUserName());
+        // Don't set status here - it will be set by setMemberCount
+    }
 
     /**
      * This method is called from within the constructor to initialize the form.
