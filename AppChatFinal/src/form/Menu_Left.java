@@ -608,6 +608,22 @@ public class Menu_Left extends javax.swing.JPanel {
         groupListPanel.add(emptyPanel);
         groupListPanel.revalidate();
         groupListPanel.repaint();
+    }    // Public getter for friends list to be used by Chat.java
+    public List<Model_User_Account> getFriendsList() {
+        return friendsList;
+    }
+    
+    // Public method to find a friend by user ID
+    public Model_User_Account findFriend(int userID) {
+        if (friendsList == null) {
+            return null;
+        }
+        for (Model_User_Account friend : friendsList) {
+            if (friend.getUserID() == userID) {
+                return friend;
+            }
+        }
+        return null;
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

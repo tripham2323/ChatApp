@@ -23,13 +23,12 @@ import java.util.List;
  *
  * @author Admin
  */
-public class  Chat extends javax.swing.JPanel {
-
-    private Chat_Title chatTitle;
+public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
     private Chat_Body chatBody;
     private chat_Bottom chatBottom;
     private HashMap<Integer, List<Object>> chatHistory; // Lưu trữ lịch sử chat theo userID
     private HashMap<Integer, Model_User_Account> friendsCache; // Cache danh sách bạn bè với avatar
+    private Menu_Left menuLeft; // Reference to Menu_Left for accessing friends list
 
     public Chat() {
         initComponents();
@@ -147,8 +146,7 @@ public class  Chat extends javax.swing.JPanel {
 
 
 
-    }
-    public void setUser(Model_User_Account user){
+    }    public void setUser(Model_User_Account user){
         this.user = user;
         chatTitle.setUserName(user);
         chatBottom.setUser(user);
@@ -158,6 +156,12 @@ public class  Chat extends javax.swing.JPanel {
 
         // Tải lại lịch sử chat nếu có
         loadChatHistory(user.getUserID());
+    }
+    
+    // Set reference to Menu_Left for accessing friends list
+    public void setMenuLeft(Menu_Left menuLeft) {
+        this.menuLeft = menuLeft;
+        System.out.println("*** MENU_LEFT REFERENCE SET ***");
     }
 
     public void updateUser(Model_User_Account user){
@@ -229,14 +233,32 @@ public class  Chat extends javax.swing.JPanel {
                 }
             }
         }
-    }    // Phương thức lấy thông tin user thật từ friends cache
+    }    // Phương thức lấy thông tin user thật từ Menu_Left friends list
     private Model_User_Account getRealUserInfo(int userID) {
         System.out.println("*** GETTING REAL USER INFO FOR ID: " + userID + " ***");
         
-        // Kiểm tra cache trước
+        // Kiểm tra Menu_Left friends list trước
+        if (menuLeft != null) {
+            Model_User_Account friend = menuLeft.findFriend(userID);
+            if (friend != null) {
+                System.out.println("*** FOUND FRIEND IN MENU_LEFT: " + friend.getUserName() + " ***");
+                if (friend.getImage() != null && friend.getImage().length > 0) {
+                    System.out.println("*** FRIEND HAS AVATAR: " + friend.getImage().length + " bytes ***");
+                } else {
+                    System.out.println("*** FRIEND HAS NO AVATAR ***");
+                }
+                return friend;
+            } else {
+                System.out.println("*** FRIEND NOT FOUND IN MENU_LEFT ***");
+            }
+        } else {
+            System.out.println("*** MENU_LEFT REFERENCE IS NULL ***");
+        }
+        
+        // Fallback to local cache
         if (friendsCache.containsKey(userID)) {
             Model_User_Account cachedFriend = friendsCache.get(userID);
-            System.out.println("*** FOUND FRIEND IN CACHE: " + cachedFriend.getUserName() + " ***");
+            System.out.println("*** FOUND FRIEND IN LOCAL CACHE: " + cachedFriend.getUserName() + " ***");
             if (cachedFriend.getImage() != null && cachedFriend.getImage().length > 0) {
                 System.out.println("*** CACHED FRIEND HAS AVATAR: " + cachedFriend.getImage().length + " bytes ***");
             } else {
@@ -245,7 +267,7 @@ public class  Chat extends javax.swing.JPanel {
             return cachedFriend;
         }
         
-        System.out.println("*** FRIEND NOT FOUND IN CACHE, CREATING BASIC USER ***");
+        System.out.println("*** FRIEND NOT FOUND ANYWHERE, CREATING BASIC USER ***");
         
         // Nếu không có trong cache, tạo user với thông tin cơ bản
         Model_User_Account realUser = new Model_User_Account();

@@ -9,9 +9,9 @@ import net.miginfocom.swing.MigLayout;
  *
  * @author Admin
  */
-public class Home extends javax.swing.JLayeredPane {
-
-    private Chat chat;
+public class Home extends javax.swing.JLayeredPane {    private Chat chat;
+    private Menu_Left menuLeft;
+    
     public Home() {
         initComponents();
         init();
@@ -19,8 +19,10 @@ public class Home extends javax.swing.JLayeredPane {
 
      private void init(){
         setLayout(new MigLayout("fillx, filly", "5[200!]5[fill, 100%]5[200!]5", "0[fill]5")); // set bố cục layout 
-        this.add(new Menu_Left());
+        menuLeft = new Menu_Left();
+        this.add(menuLeft);
         chat = new Chat();
+        chat.setMenuLeft(menuLeft); // Pass Menu_Left reference to Chat
         this.add(chat);
         this.add(new Menu_Right());
         chat.setVisible(false);
