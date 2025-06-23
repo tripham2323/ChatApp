@@ -190,14 +190,14 @@ public class Register extends javax.swing.JPanel {
             txtPass.grabFocus();
         }else{
             Model_Register data = new Model_Register(userName, password);
-            PublicEvent.getInstance().getEventLogin().Register(data, new EventMessage() {
-                @Override
+            PublicEvent.getInstance().getEventLogin().Register(data, new EventMessage() {                @Override
                 public void callMessage(Model_Message message) {
                     if(!message.isAction()){ //if biến message ko phải true = false
                     jLabel1.setVisible(true);
                     jLabel1.setText(message.getMessage());
                     }else{
-                        jLabel1.setText("Đăng ký tài khoản thành công !");
+                        jLabel1.setText("Đăng ký tài khoản thành công !");                        // Cập nhật Menu_Right với thông tin user mới
+                        PublicEvent.getInstance().getEventMenuRight().setImageAvatar(service.Service.getInstance().getUser());
                         PublicEvent.getInstance().getEventMain().initChat();
                     }
                    }

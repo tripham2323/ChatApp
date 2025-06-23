@@ -129,7 +129,7 @@ public class Menu_Right extends javax.swing.JPanel {
         userName.setForeground(new java.awt.Color(255, 255, 255));
         userName.setText("Hello Phuc !");
         panel1.add(userName);
-        userName.setBounds(10, 6, 140, 40);
+        userName.setBounds(20, 0, 140, 40);
 
         Panel2.setLayer(imaAvatar, javax.swing.JLayeredPane.DEFAULT_LAYER);
         Panel2.setLayer(panel1, javax.swing.JLayeredPane.DEFAULT_LAYER);
@@ -139,23 +139,22 @@ public class Menu_Right extends javax.swing.JPanel {
         Panel2Layout.setHorizontalGroup(
             Panel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(Panel2Layout.createSequentialGroup()
-                .addGroup(Panel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(Panel2Layout.createSequentialGroup()
-                        .addGap(49, 49, 49)
-                        .addComponent(imaAvatar, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(Panel2Layout.createSequentialGroup()
-                        .addGap(21, 21, 21)
-                        .addComponent(panel1, javax.swing.GroupLayout.PREFERRED_SIZE, 160, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(19, Short.MAX_VALUE))
+                .addGap(50, 50, 50)
+                .addComponent(imaAvatar, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, Panel2Layout.createSequentialGroup()
+                .addContainerGap(23, Short.MAX_VALUE)
+                .addComponent(panel1, javax.swing.GroupLayout.PREFERRED_SIZE, 160, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(17, 17, 17))
         );
         Panel2Layout.setVerticalGroup(
             Panel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(Panel2Layout.createSequentialGroup()
-                .addGap(71, 71, 71)
+                .addGap(19, 19, 19)
                 .addComponent(imaAvatar, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(75, 75, 75)
+                .addGap(29, 29, 29)
                 .addComponent(panel1, javax.swing.GroupLayout.PREFERRED_SIZE, 48, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(268, Short.MAX_VALUE))
+                .addContainerGap(366, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);

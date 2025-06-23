@@ -147,19 +147,20 @@ public class Service {
                 System.out.println("Message Text: " + messageData.get("text"));
                 System.out.println("Socket Client ID: " + socketClient.getSessionId());
                   // Convert Map to Model_Send_Message
-                try {
-                    // Handle messageType conversion from String to int
-                    String messageTypeStr = (String) messageData.get("messageType");
-                    int messageType;
-                    if ("TEXT".equals(messageTypeStr)) {
-                        messageType = 0; // MessageType.TEXT
-                    } else if ("IMAGE".equals(messageTypeStr)) {
-                        messageType = 1; // MessageType.IMAGE
-                    } else if ("FILE".equals(messageTypeStr)) {  
-                        messageType = 2; // MessageType.FILE
-                    } else {
-                        messageType = 0; // Default to TEXT
-                    }
+                try {                // Handle messageType conversion from String to int
+                String messageTypeStr = (String) messageData.get("messageType");
+                int messageType;
+                if ("TEXT".equals(messageTypeStr)) {
+                    messageType = 1; // MessageType.TEXT
+                } else if ("EMOJI".equals(messageTypeStr)) {
+                    messageType = 2; // MessageType.EMOJI
+                } else if ("FILE".equals(messageTypeStr)) {  
+                    messageType = 3; // MessageType.FILE
+                } else if ("IMAGE".equals(messageTypeStr)) {
+                    messageType = 4; // MessageType.IMAGE
+                } else {
+                    messageType = 1; // Default to TEXT
+                }
                     
                     int fromUserID = (Integer) messageData.get("fromUserID");
                     int toUserID = (Integer) messageData.get("toUserID");
@@ -227,13 +228,19 @@ public class Service {
                             @SuppressWarnings("unchecked")
                             java.util.Map<String, Object> messageData = (java.util.Map<String, Object>) data;
                             System.out.println("Parsing LinkedHashMap to Model_Send_Message");
-                            
-                            Object messageTypeObj = messageData.get("messageType");
+                              Object messageTypeObj = messageData.get("messageType");
                             int messageType = 0;
                             if (messageTypeObj instanceof String) {
-                                // Convert "TEXT" to MessageType.TEXT.getValue()
-                                if ("TEXT".equals(messageTypeObj)) {
+                                // Convert string to MessageType value
+                                String messageTypeStr = (String) messageTypeObj;
+                                if ("TEXT".equals(messageTypeStr)) {
                                     messageType = 1; // MessageType.TEXT
+                                } else if ("EMOJI".equals(messageTypeStr)) {
+                                    messageType = 2; // MessageType.EMOJI
+                                } else if ("FILE".equals(messageTypeStr)) {
+                                    messageType = 3; // MessageType.FILE
+                                } else if ("IMAGE".equals(messageTypeStr)) {
+                                    messageType = 4; // MessageType.IMAGE
                                 }
                             } else if (messageTypeObj instanceof Number) {
                                 messageType = ((Number) messageTypeObj).intValue();

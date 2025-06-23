@@ -6,11 +6,8 @@ package service;
 
 import java.sql.PreparedStatement;
 import connection.DatabaseConnection;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.ResultSet;
@@ -28,12 +25,11 @@ import model.Model_Group_Chat;
  * @author Admin
  */
 public class ServiceUser {
-    private final String PATH_FILE = "server_data/profile.png";
   //SQL truy vấn
     private final String LOGIN = "select UserID, user_account.UserName, Gender, Image from `user` join user_account using (UserID) where `user`.UserName=BINARY(?) and `user`.`Password`=BINARY(?) and user_account.`Status`='1'";
     private final String INSERT_USER = "insert into user (UserName, Password) values (?,?)";
     private final String INSERT_USER_ACCOUNT = "insert into user_account (UserID, UserName, Image) values (?,?,?)";
-    private final String CHECK_USER = "select UserID from user where UserName =? limit 1";    // lấy info các user còn lại trừ userID này ra
+    private final String CHECK_USER = "select UserID from user where UserName =? limit 1";// lấy info các user còn lại trừ userID này ra
     private final String SELECT_USER_ACCOUNT = "select UserID, UserName, Gender, Image from user_account where user_account.`Status`='1' and UserID<>?";
     // Search users by username
     private final String SEARCH_USERS = "select UserID, UserName, Gender, Image from user_account where user_account.`Status`='1' and UserName LIKE ? LIMIT 10";
@@ -70,69 +66,97 @@ public class ServiceUser {
     private final Connection con;
     public ServiceUser() {
         this.con = DatabaseConnection.getInstance().getConnection();
-    }
-    public Model_Message register(Model_Register data) throws IOException{
+    }    public Model_Message register(Model_Register data) throws IOException{
     //kiểm tra user tồn tại
+        System.out.println("=== REGISTER PROCESS STARTED ===");
+        System.out.println("Username: " + data.getUserName());
+        System.out.println("Password: " + data.getPassword());
+        
         Model_Message message = new Model_Message();
         try {
             
-        File f = new File(PATH_FILE); 
-         byte[] dataAvatar = Files.readAllBytes(f.toPath());
+        // Tạo avatar mặc định thay vì đọc từ file
+        byte[] dataAvatar = createDefaultAvatar();
+        System.out.println("Default avatar created: " + dataAvatar.length + " bytes");
+        
         PreparedStatement p = con.prepareStatement(CHECK_USER);
         p.setString(1, data.getUserName());
         ResultSet r = p.executeQuery();
+        System.out.println("Checking if user exists...");        System.out.println("Checking if user exists...");
         if(r.first()){  
+             System.out.println("User already exists: " + data.getUserName());
              message.setAction(false);
              message.setMessage("Người dùng đã tồn tạiiiii");   
         }else{
+             System.out.println("User doesn't exist, proceeding with registration...");
              message.setAction(true);
         }
         r.close();
         p.close();
         if(message.isAction()){
+         System.out.println("Starting user registration transaction...");
          //insert user đang ký
          con.setAutoCommit(false);
          p = con.prepareStatement(INSERT_USER, PreparedStatement.RETURN_GENERATED_KEYS);
          p.setString(1, data.getUserName());
          p.setString(2, data.getPassword());
+         System.out.println("Executing INSERT_USER query...");
          p.execute();
          r = p.getGeneratedKeys();
          r.first();
          int userID = r.getInt(1);
-         r.close();
-         p.close();
+         System.out.println("Generated UserID: " + userID);
+         r.close();         p.close();
          //create avatar image for new user register
-       
-         FileInputStream fis = new FileInputStream(f.getAbsolutePath());
+         // Sử dụng ByteArrayInputStream thay vì FileInputStream
+         java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(dataAvatar);
          //tao user account
          p = con.prepareStatement(INSERT_USER_ACCOUNT);
          p.setInt(1, userID);
          p.setString(2, data.getUserName());
-         p.setBinaryStream(3, fis);
+         p.setBinaryStream(3, bis);
+         System.out.println("Executing INSERT_USER_ACCOUNT query...");
          p.execute();
          p.close();
+         System.out.println("Committing transaction...");
          con.commit(); //xác nhận commit thay đổi 
          con.setAutoCommit(true);          
              message.setAction(true);
              message.setMessage("Đăng ký tài khoản thành công !"    );
              message.setData(new Model_User_Account(userID, data.getUserName(), "", dataAvatar, true));//set list thông tin user để gửi về client hiển thị
-       
-       }
-        } catch (SQLException e) {
+       System.out.println("Registration completed successfully for user: " + data.getUserName() + " with ID: " + userID);
+       }        } catch (SQLException e) {
+            System.err.println("=== SQL ERROR DURING REGISTRATION ===");
+            System.err.println("Error message: " + e.getMessage());
+            System.err.println("SQL State: " + e.getSQLState());
+            System.err.println("Error Code: " + e.getErrorCode());
+            e.printStackTrace();
+            
             message.setAction(false);
-            message.setMessage("Server error");
+            message.setMessage("Server error: " + e.getMessage());
             try {
                 if(con.getAutoCommit() == false){
+                    System.out.println("Rolling back transaction...");
                     con.rollback();
                     con.setAutoCommit(true);
                 
                 }
             } catch (Exception e1) {
+                System.err.println("Error during rollback: " + e1.getMessage());
             }
             
+        } catch (Exception e) {
+            System.err.println("=== GENERAL ERROR DURING REGISTRATION ===");
+            System.err.println("Error message: " + e.getMessage());
+            e.printStackTrace();
+            
+            message.setAction(false);
+            message.setMessage("Server error: " + e.getMessage());
         }
 
-       
+       System.out.println("=== REGISTER PROCESS ENDED ===");
+       System.out.println("Final message action: " + message.isAction());
+       System.out.println("Final message text: " + message.getMessage());
        return message;
     
     }
@@ -854,6 +878,39 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
             if (p != null) {
                 p.close();
             }
+        }
+    }
+    
+    // Method to create default avatar bytes (simple colored square)
+    private byte[] createDefaultAvatar() {
+        try {
+            // Tạo một ảnh PNG đơn giản 64x64 pixel màu xanh dương
+            java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(64, 64, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g2d = image.createGraphics();
+            
+            // Vẽ nền màu xanh dương
+            g2d.setColor(new java.awt.Color(104, 88, 219));
+            g2d.fillRect(0, 0, 64, 64);
+            
+            // Vẽ chữ "U" màu trắng ở giữa
+            g2d.setColor(java.awt.Color.WHITE);
+            g2d.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 32));
+            java.awt.FontMetrics fm = g2d.getFontMetrics();
+            int x = (64 - fm.stringWidth("U")) / 2;
+            int y = (64 - fm.getHeight()) / 2 + fm.getAscent();
+            g2d.drawString("U", x, y);
+            
+            g2d.dispose();
+            
+            // Chuyển đổi thành byte array
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(image, "PNG", baos);
+            return baos.toByteArray();
+            
+        } catch (Exception e) {
+            System.err.println("Error creating default avatar: " + e.getMessage());
+            // Trả về mảng byte rỗng nếu có lỗi
+            return new byte[0];
         }
     }
 }

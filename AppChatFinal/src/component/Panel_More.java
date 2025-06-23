@@ -109,9 +109,8 @@ public class Panel_More extends javax.swing.JPanel {
                  if (option == JFileChooser.APPROVE_OPTION){
                         File files[] = ch.getSelectedFiles();
                         try {
-                           for(File file:files){
-                               Model_Send_Message message = new Model_Send_Message(MessageType.IMAGE, Service.getInstance().getUser().getUserID(), user.getUserID(), "");
-                               Service.getInstance().addFile(file, message);
+                           for(File file:files){                               Model_Send_Message message = new Model_Send_Message(MessageType.IMAGE, service.Service.getInstance().getUser().getUserID(), user.getUserID(), "");
+                               service.Service.getInstance().addFile(file, message);
                                PublicEvent.getInstance().getEventChat().sendMessage(message);
                           
                            }
@@ -264,21 +263,57 @@ public class Panel_More extends javax.swing.JPanel {
                      cmd.setName(data.getId()+"");
                      cmd.setBorder(new EmptyBorder(3, 3, 3, 3));
                      cmd.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                     cmd.setContentAreaFilled(false);
-                     cmd.addActionListener(new ActionListener() {
+                     cmd.setContentAreaFilled(false);                     cmd.addActionListener(new ActionListener() {
                          @Override
                          public void actionPerformed(ActionEvent e) { //event khi nhấn vào emoji để gửi đí
-                             Model_Send_Message message = new Model_Send_Message(MessageType.EMOJI, Service.getInstance().getUser().getUserID(), user.getUserID(), data.getId()+"");
+                             Model_Send_Message message = new Model_Send_Message(MessageType.EMOJI, service.Service.getInstance().getUser().getUserID(), user.getUserID(), data.getId()+"");
                              sendMessage(message);
                              PublicEvent.getInstance().getEventChat().sendMessage(message);
                          }
                      });
                      return cmd;
+    }    private void sendMessage(Model_Send_Message data){
+        // Check if this is a group chat
+        if (isGroupChat()) {
+            System.out.println("=== Panel_More: SENDING GROUP EMOJI ===");
+            System.out.println("Group ID: " + data.getToUserID());
+            System.out.println("From User: " + data.getFromUserID());
+            System.out.println("Emoji ID: " + data.getText());
+            System.out.println("Message Type: " + data.getMessageType());
+            
+            // Send as Map instead of JSONObject to be consistent with chat_Bottom
+            java.util.Map<String, Object> messageData = new java.util.HashMap<>();
+            messageData.put("fromUserID", data.getFromUserID());
+            messageData.put("toUserID", data.getToUserID()); // This is groupID
+            messageData.put("messageType", data.getMessageType());
+            messageData.put("text", data.getText());
+            
+            service.Service.getInstance().getClient().emit("send_to_group", messageData);
+            System.out.println("Panel_More: Emitted send_to_group event successfully");
+        } else {
+            System.out.println("=== Panel_More: SENDING USER EMOJI ===");
+            System.out.println("To User: " + data.getToUserID());
+            System.out.println("From User: " + data.getFromUserID());
+            System.out.println("Emoji ID: " + data.getText());
+            System.out.println("Message Type: " + data.getMessageType());
+            
+            // Send as Map to be consistent with chat_Bottom
+            java.util.Map<String, Object> messageData = new java.util.HashMap<>();
+            messageData.put("fromUserID", data.getFromUserID());
+            messageData.put("toUserID", data.getToUserID());
+            messageData.put("messageType", data.getMessageType());
+            messageData.put("text", data.getText());
+            
+            service.Service.getInstance().getClient().emit("send_to_user", messageData);
+            System.out.println("Panel_More: Emitted send_to_user event successfully");
+        }
     }
     
-    private void sendMessage(Model_Send_Message data){
-        Service.getInstance().getClient().emit("send_to_user", data.toJSONObject());
-    
+    private boolean isGroupChat() {
+        // Check if the user object represents a group
+        // A group chat is identified by having a special flag or by checking the user ID range
+        // Groups typically have negative IDs or a specific range, or we can add a flag
+        return user != null && user.isGroup();
     }
     private void clearSelected(){
         for(Component c:panelHeader.getComponents()){

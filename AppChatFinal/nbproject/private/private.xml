@@ -3,15 +3,8 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/E:/code/ChatApp/AppChatFinal/src/form/Menu_Left.java</file>
-            <file>file:/E:/code/ChatApp/AppChatFinal/src/component/FriendSearchItem.java</file>
-            <file>file:/E:/code/ChatApp/AppChatFinal/src/form/Home.java</file>
             <file>file:/E:/code/ChatApp/AppChatFinal/src/component/Chat_Body.java</file>
-            <file>file:/E:/code/ChatApp/AppChatFinal/src/component/FriendSearchPanel.java</file>
-            <file>file:/E:/code/ChatApp/AppChatFinal/src/service/Service.java</file>
-            <file>file:/E:/code/ChatApp/AppChatFinal/src/model/Model_User_Account.java</file>
-            <file>file:/E:/code/ChatApp/AppChatFinal/src/component/FriendRequestItem.java</file>
-            <file>file:/E:/code/ChatApp/AppChatFinal/src/component/FriendSearchPanelNew.java</file>
+            <file>file:/E:/code/ChatApp/AppChatFinal/src/form/Menu_Right.java</file>
         </group>
     </open-files>
 </project-private>

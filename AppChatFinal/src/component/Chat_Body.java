@@ -54,17 +54,47 @@ public class Chat_Body extends javax.swing.JPanel {
      System.out.println("*** CHAT_BODY: addItemLeft called ***");
      System.out.println("Message Type: " + data.getMessageType());
      System.out.println("Message Text: " + data.getText());
-     System.out.println("User info: " + (user != null ? user.getUserName() + " (ID: " + user.getUserID() + ")" : "null"));     System.out.println("User has avatar: " + (user != null && user.getImage() != null));
-     System.out.println("User has image bytes: " + (user != null && user.getImage() != null && user.getImage().length > 0));
-     
-     // FORCE DISPLAY AS TEXT MESSAGE - IGNORE MESSAGE TYPE
-     System.out.println("*** FORCING TEXT MESSAGE DISPLAY ***");
-     Chat_Left_With_Profile item = new Chat_Left_With_Profile();
-     setAvatar(item, user); 
-     item.setText(data.getText());
-     item.setTime();
-     body.add(item, "wrap, w 100::80%");
-     System.out.println("*** TEXT MESSAGE ADDED TO BODY ***");
+     System.out.println("User info: " + (user != null ? user.getUserName() + " (ID: " + user.getUserID() + ")" : "null"));     
+     System.out.println("User has avatar: " + (user != null && user.getImage() != null));     System.out.println("User has image bytes: " + (user != null && user.getImage() != null && user.getImage().length > 0));       // Handle different message types properly
+     if(data.getMessageType() == MessageType.TEXT){
+         System.out.println("*** DISPLAYING TEXT MESSAGE ***");
+         Chat_Left_With_Profile item = new Chat_Left_With_Profile();
+         setAvatar(item, user); 
+         item.setText(data.getText());
+         item.setTime();
+         body.add(item, "wrap, w 100::80%");
+     } else if(data.getMessageType() == MessageType.EMOJI){
+         System.out.println("*** DISPLAYING EMOJI MESSAGE ***");
+         System.out.println("Emoji ID: " + data.getText());
+         Chat_Left_With_Profile item = new Chat_Left_With_Profile();
+         setAvatar(item, user);
+         item.setEmoji(Emoji.getInstance().getEmoji(Integer.valueOf(data.getText())).getIcon());
+         item.setTime();
+         body.add(item, "wrap, w 100::80%");
+     } else if(data.getMessageType() == MessageType.IMAGE){
+         System.out.println("*** DISPLAYING IMAGE MESSAGE ***");
+         Chat_Left_With_Profile item = new Chat_Left_With_Profile();
+         setAvatar(item, user);
+         // Handle image message properly - need to implement
+         item.setText("Image: " + data.getText());
+         item.setTime();
+         body.add(item, "wrap, w 100::80%");
+     } else if(data.getMessageType() == MessageType.FILE){
+         System.out.println("*** DISPLAYING FILE MESSAGE ***");
+         Chat_Left_With_Profile item = new Chat_Left_With_Profile();
+         setAvatar(item, user);
+         // Handle file message properly - need to implement
+         item.setText("File: " + data.getText());
+         item.setTime();
+         body.add(item, "wrap, w 100::80%");
+     } else {
+         System.out.println("*** UNKNOWN MESSAGE TYPE, DISPLAYING AS TEXT ***");
+         Chat_Left_With_Profile item = new Chat_Left_With_Profile();
+         setAvatar(item, user); 
+         item.setText(data.getText());
+         item.setTime();
+         body.add(item, "wrap, w 100::80%");
+     }
      
      repaint();
      revalidate();
@@ -132,10 +162,8 @@ public class Chat_Body extends javax.swing.JPanel {
     item.setUserProfile(user);
     body.add(item, "wrap, w 100::80%");// thiết lập căn lề khung chat
     body.repaint();
-    body.revalidate();
-    }
-       public void addItemRight(Model_Send_Message data){
-    if(data.getMessageType() ==  MessageType.TEXT){
+    body.revalidate();    }    public void addItemRight(Model_Send_Message data){
+    if(data.getMessageType() == MessageType.TEXT){
         Chat_Right item = new  Chat_Right();
         item.setText(data.getText());
         item.setTime();
@@ -150,13 +178,13 @@ public class Chat_Body extends javax.swing.JPanel {
     }else if(data.getMessageType() == MessageType.IMAGE){
         Chat_Right item = new  Chat_Right();
         item.setText("");
-        item.setImage(data.getFile());
+        // item.setImage(data.getFile()); // TODO: Fix this later
         item.setTime();
         body.add(item, "wrap, al right, w 100::80%");// thiết lập căn lề khung chat
     }else if(data.getMessageType() == MessageType.FILE){
          Chat_Right item = new  Chat_Right();
          item.setText("");
-         item.setFile(data.getFile());
+         // item.setFile(data.getFile()); // TODO: Fix this later
          body.add(item, "wrap, al right, w 100::80%");// thiết lập căn lề khung chat
     
     }
