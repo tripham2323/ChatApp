@@ -1125,11 +1125,56 @@ public class Service {
                 if (os.length > 0) {
                     boolean success = (Boolean) os[0];
                     System.out.println("Success: " + success);
-                    
-                    if (success && os.length > 1) {
+                      if (success && os.length > 1) {
                         try {
-                            @SuppressWarnings("unchecked")
-                            List<java.util.Map<String, Object>> messagesData = (List<java.util.Map<String, Object>>) os[1];
+                            List<java.util.Map<String, Object>> messagesData = new ArrayList<>();
+                              // Handle JSONArray response from server
+                            if (os[1].getClass().getName().contains("JSONArray")) {
+                                // Use reflection to handle JSONArray to avoid import issues
+                                try {
+                                    Object jsonArray = os[1];
+                                    int length = (Integer) jsonArray.getClass().getMethod("length").invoke(jsonArray);
+                                    System.out.println("Processing JSONArray with " + length + " messages");
+                                    
+                                    for (int i = 0; i < length; i++) {
+                                        Object jsonObj = jsonArray.getClass().getMethod("get", int.class).invoke(jsonArray, i);
+                                        java.util.Map<String, Object> msgMap = new java.util.HashMap<>();
+                                        
+                                        // Extract data from JSONObject using reflection
+                                        Class<?> jsonClass = jsonObj.getClass();
+                                        msgMap.put("messageID", jsonClass.getMethod("getInt", String.class).invoke(jsonObj, "messageID"));
+                                        msgMap.put("groupID", jsonClass.getMethod("getInt", String.class).invoke(jsonObj, "groupID"));
+                                        msgMap.put("senderID", jsonClass.getMethod("getInt", String.class).invoke(jsonObj, "senderID"));
+                                        msgMap.put("messageType", jsonClass.getMethod("getString", String.class).invoke(jsonObj, "messageType"));
+                                        msgMap.put("messageContent", jsonClass.getMethod("getString", String.class).invoke(jsonObj, "messageContent"));
+                                        msgMap.put("sentAt", jsonClass.getMethod("getLong", String.class).invoke(jsonObj, "sentAt"));
+                                        msgMap.put("senderName", jsonClass.getMethod("getString", String.class).invoke(jsonObj, "senderName"));
+                                        
+                                        // Handle avatar data if present
+                                        try {
+                                            Object avatarData = jsonClass.getMethod("get", String.class).invoke(jsonObj, "senderAvatar");
+                                            if (avatarData != null) {
+                                                msgMap.put("senderAvatar", avatarData);
+                                            }
+                                        } catch (Exception e) {
+                                            // Avatar might be null or not present
+                                            msgMap.put("senderAvatar", null);
+                                        }
+                                        
+                                        messagesData.add(msgMap);
+                                    }
+                                } catch (Exception e) {
+                                    System.err.println("Error processing JSONArray: " + e.getMessage());
+                                    e.printStackTrace();
+                                    callback.onError("Error processing messages: " + e.getMessage());
+                                    return;
+                                }
+                            } else {
+                                // Direct cast if it's already a List (fallback)
+                                @SuppressWarnings("unchecked")
+                                List<java.util.Map<String, Object>> directList = (List<java.util.Map<String, Object>>) os[1];
+                                messagesData = directList;
+                            }
                             
                             List<Model_Group_Message_Display> messages = new ArrayList<>();
                             

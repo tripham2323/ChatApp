@@ -172,8 +172,33 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
         // Xóa nội dung chat hiện tại
         chatBody.clearChat();
 
-        // Tải lại lịch sử chat nếu có
-        loadChatHistory(user.getUserID());
+        // Kiểm tra xem có phải chat nhóm không
+        if (user != null && user.getUserID() > 0) {
+            // Kiểm tra xem có phải group chat không bằng cách kiểm tra isGroup
+            // Nếu không có method isGroup, có thể kiểm tra qua tên hoặc ID đặc biệt
+            boolean isGroupChat = false;
+            try {
+                // Thử gọi method isGroup nếu có
+                isGroupChat = user.isGroup();
+            } catch (Exception e) {
+                // Nếu không có method isGroup, có thể kiểm tra theo cách khác
+                // Ví dụ: nếu userName bắt đầu bằng "Group:" hoặc có pattern đặc biệt
+                isGroupChat = user.getUserName() != null && 
+                             (user.getUserName().startsWith("Group:") || 
+                              user.getUserName().equals("test")); // Tạm thời check theo tên
+            }
+              if (isGroupChat) {
+                System.out.println("=== LOADING GROUP CHAT HISTORY ===");
+                System.out.println("Group ID: " + user.getUserID());
+                System.out.println("Group Name: " + user.getUserName());
+                
+                // Load tin nhắn nhóm từ database
+                loadGroupMessageHistory(user.getUserID());
+            } else {
+                // Chat cá nhân - tải lịch sử chat bình thường
+                loadChatHistory(user.getUserID());
+            }
+        }
     }
     
     // Set reference to Menu_Left for accessing friends list
@@ -205,54 +230,64 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
     }
       // Load group message history from database
     private void loadGroupMessageHistory(int groupID) {
-        System.out.println("=== LOADING GROUP MESSAGE HISTORY FOR GROUP " + groupID + " ===");
+        System.out.println("=== LOADING GROUP MESSAGE HISTORY FROM DATABASE ===");
+        System.out.println("Group ID: " + groupID);
         
-        // TODO: Implement group message loading later to avoid compilation errors
-        System.out.println("Group message loading temporarily disabled");
-        
-        /*
-        service.Service.getInstance().loadGroupMessages(groupID, new service.Service.GroupMessagesCallback() {
-            @Override
-            public void onSuccess(java.util.List<model.Model_Group_Message_Display> messages) {
-                System.out.println("=== RECEIVED " + messages.size() + " GROUP MESSAGES FROM DB ===");
+        try {
+            service.Service.getInstance().loadGroupMessages(groupID, new service.Service.GroupMessagesCallback() {
+                @Override
+                public void onSuccess(List<model.Model_Group_Message_Display> messages) {
+                    System.out.println("=== GROUP MESSAGES LOADED SUCCESSFULLY ===");
+                    System.out.println("Number of messages: " + messages.size());
+                    
+                    // Hiển thị các tin nhắn trên UI (phải chạy trên EDT)
+                    javax.swing.SwingUtilities.invokeLater(() -> {
+                        for (model.Model_Group_Message_Display msg : messages) {
+                            try {
+                                // Tạo Model_Receive_Message từ group message
+                                app.MessageType msgType = app.MessageType.TEXT; // Default to TEXT
+                                Model_Receive_Message receiveMsg = new Model_Receive_Message(
+                                    msgType, 
+                                    msg.getSenderID(), 
+                                    msg.getMessageContent()
+                                );
+                                
+                                // Tạo sender info với avatar
+                                Model_User_Account senderInfo = new Model_User_Account();
+                                senderInfo.setUserID(msg.getSenderID());
+                                senderInfo.setUserName(msg.getSenderName());
+                                senderInfo.setImage(msg.getSenderAvatar());
+                                
+                                // Hiển thị tin nhắn
+                                chatBody.addItemLeft(receiveMsg, null, senderInfo);
+                                
+                                System.out.println("Displayed message from " + msg.getSenderName() + ": " + msg.getMessageContent());
+                                
+                            } catch (Exception e) {
+                                System.err.println("Error displaying group message: " + e.getMessage());
+                                e.printStackTrace();
+                            }
+                        }
+                        
+                        // Refresh UI
+                        chatBody.revalidate();
+                        chatBody.repaint();
+                        
+                        System.out.println("=== GROUP MESSAGE HISTORY DISPLAYED ===");
+                    });
+                }
                 
-                // Display messages in chat UI
-                javax.swing.SwingUtilities.invokeLater(() -> {
-                    for (model.Model_Group_Message_Display msg : messages) {
-                        System.out.println("Displaying message: " + msg.getSenderName() + " - " + msg.getMessageContent());
-                        
-                        // Create Model_Receive_Message for display
-                        MessageType msgType = MessageType.TEXT; // Default to TEXT, could parse from messageType
-                        Model_Receive_Message displayMsg = new Model_Receive_Message(msgType, msg.getSenderID(), msg.getMessageContent());
-                        
-                        // Create sender info with avatar
-                        Model_User_Account senderInfo = new Model_User_Account();
-                        senderInfo.setUserID(msg.getSenderID());
-                        senderInfo.setUserName(msg.getSenderName());
-                        senderInfo.setImage(msg.getSenderAvatar());
-                        senderInfo.setStatus(true);
-                        
-                        // Display message with avatar
-                        chatBody.addItemLeft(displayMsg, null, senderInfo);
-                        
-                        System.out.println("Message displayed with avatar: " + 
-                                         (msg.getSenderAvatar() != null ? msg.getSenderAvatar().length + " bytes" : "no avatar"));
-                    }
-                    
-                    // Refresh UI
-                    chatBody.revalidate();
-                    chatBody.repaint();
-                    
-                    System.out.println("=== GROUP MESSAGE HISTORY LOADED AND DISPLAYED ===");
-                });
-            }
-            
-            @Override
-            public void onError(String error) {
-                System.err.println("=== ERROR LOADING GROUP MESSAGES: " + error + " ===");
-            }
-        });
-        */
+                @Override
+                public void onError(String error) {
+                    System.err.println("=== ERROR LOADING GROUP MESSAGES ===");
+                    System.err.println("Error: " + error);
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("=== EXCEPTION LOADING GROUP MESSAGES ===");
+            System.err.println("Exception: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /**
