@@ -55,12 +55,18 @@ public class Model_File_Receive {
     private Model_Send_Message message;
     private File file;
 
-    
-    public File writeFile(byte[] data) throws IOException{
-          FileOutputStream out = new FileOutputStream(getFile());
-          out.write(data);
-          out.close();
-          return file;
+      public File writeFile(byte[] data) throws IOException{
+        // Ensure parent directory exists
+        File parentDir = file.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            boolean created = parentDir.mkdirs();
+            System.out.println("Created directory: " + parentDir.getPath() + " - Success: " + created);
+        }
+        
+        FileOutputStream out = new FileOutputStream(getFile());
+        out.write(data);
+        out.close();
+        return file;
     }
     
 }

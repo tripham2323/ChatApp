@@ -33,8 +33,14 @@ import swing.blurHash.BlurHash;
  */
 public class ServiceFile {
     public ServiceFile(){
-        
         this.fileReceivers = new HashMap<>();
+        
+        // Create client_data directory if it doesn't exist
+        File dataDir = new File(PATH_FILE);
+        if (!dataDir.exists()) {
+            boolean created = dataDir.mkdirs();
+            System.out.println("Created client_data directory: " + created);
+        }
     }
     
  

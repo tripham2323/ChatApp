@@ -144,20 +144,31 @@ public class Service {
                 System.out.println("From UserID: " + messageData.get("fromUserID"));
                 System.out.println("To UserID: " + messageData.get("toUserID"));
                 System.out.println("Message Type: " + messageData.get("messageType"));
-                System.out.println("Message Text: " + messageData.get("text"));
-                System.out.println("Socket Client ID: " + socketClient.getSessionId());
-                  // Convert Map to Model_Send_Message
-                try {                // Handle messageType conversion from String to int
-                String messageTypeStr = (String) messageData.get("messageType");
-                int messageType;
-                if ("TEXT".equals(messageTypeStr)) {
-                    messageType = 1; // MessageType.TEXT
-                } else if ("EMOJI".equals(messageTypeStr)) {
-                    messageType = 2; // MessageType.EMOJI
-                } else if ("FILE".equals(messageTypeStr)) {  
-                    messageType = 3; // MessageType.FILE
-                } else if ("IMAGE".equals(messageTypeStr)) {
-                    messageType = 4; // MessageType.IMAGE
+                System.out.println("Message Text: " + messageData.get("text"));                System.out.println("Socket Client ID: " + socketClient.getSessionId());
+                
+                // Convert Map to Model_Send_Message
+                try {
+                    // Handle messageType conversion from String to int
+                    Object messageTypeObj = messageData.get("messageType");
+                    int messageType;
+                
+                if (messageTypeObj instanceof Integer) {
+                    // Direct integer value
+                    messageType = (Integer) messageTypeObj;
+                } else if (messageTypeObj instanceof String) {
+                    // String representation, convert to int
+                    String messageTypeStr = (String) messageTypeObj;
+                    if ("TEXT".equals(messageTypeStr)) {
+                        messageType = 1; // MessageType.TEXT
+                    } else if ("EMOJI".equals(messageTypeStr)) {
+                        messageType = 2; // MessageType.EMOJI
+                    } else if ("FILE".equals(messageTypeStr)) {  
+                        messageType = 3; // MessageType.FILE
+                    } else if ("IMAGE".equals(messageTypeStr)) {
+                        messageType = 4; // MessageType.IMAGE
+                    } else {
+                        messageType = 1; // Default to TEXT
+                    }
                 } else {
                     messageType = 1; // Default to TEXT
                 }
