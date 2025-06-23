@@ -22,6 +22,7 @@ import javax.swing.*;
 
 import model.Model_File;
 import model.Model_File_Sender;
+import model.Model_Group_Message_Display;
 import model.Model_Package_Sender;
 import model.Model_Receive_Message;
 import model.Model_Send_Message;
@@ -1100,6 +1101,84 @@ public class Service {
     
     public interface GroupMembersCallback {
         void onSuccess(List<Model_User_Account> members);
+        void onError(String error);
+    }
+    
+    // Load group messages from database
+    public void loadGroupMessages(int groupID, GroupMessagesCallback callback) {
+        if (user == null) {
+            callback.onError("User not logged in");
+            return;
+        }
+        
+        System.out.println("=== CLIENT REQUESTING GROUP MESSAGES FOR GROUP " + groupID + " ===");
+        
+        java.util.Map<String, Object> requestData = new java.util.HashMap<>();
+        requestData.put("groupID", groupID);
+        
+        client.emit("load_group_messages", requestData, new Ack() {
+            @Override
+            public void call(Object... os) {
+                System.out.println("=== CLIENT RECEIVED GROUP MESSAGES RESPONSE ===");
+                System.out.println("Response objects: " + os.length);
+                
+                if (os.length > 0) {
+                    boolean success = (Boolean) os[0];
+                    System.out.println("Success: " + success);
+                    
+                    if (success && os.length > 1) {
+                        try {
+                            @SuppressWarnings("unchecked")
+                            List<java.util.Map<String, Object>> messagesData = (List<java.util.Map<String, Object>>) os[1];
+                            
+                            List<Model_Group_Message_Display> messages = new ArrayList<>();
+                            
+                            for (java.util.Map<String, Object> msgData : messagesData) {
+                                try {
+                                    Model_Group_Message_Display message = new Model_Group_Message_Display();
+                                    message.setMessageID(((Number) msgData.get("messageID")).intValue());
+                                    message.setGroupID(((Number) msgData.get("groupID")).intValue());
+                                    message.setSenderID(((Number) msgData.get("senderID")).intValue());
+                                    message.setMessageType((String) msgData.get("messageType"));
+                                    message.setMessageContent((String) msgData.get("messageContent"));
+                                    message.setSentAt(new java.util.Date(((Number) msgData.get("sentAt")).longValue()));
+                                    message.setSenderName((String) msgData.get("senderName"));
+                                    
+                                    // Handle avatar data
+                                    Object avatarData = msgData.get("senderAvatar");
+                                    if (avatarData != null && avatarData instanceof byte[]) {
+                                        message.setSenderAvatar((byte[]) avatarData);
+                                    }
+                                    
+                                    messages.add(message);
+                                    
+                                    System.out.println("Parsed message: " + message.getSenderName() + " - " + message.getMessageContent());
+                                } catch (Exception e) {
+                                    System.err.println("Error parsing message: " + e.getMessage());
+                                }
+                            }
+                            
+                            System.out.println("=== PARSED " + messages.size() + " GROUP MESSAGES ===");
+                            callback.onSuccess(messages);
+                            
+                        } catch (Exception e) {
+                            System.err.println("Error parsing messages data: " + e.getMessage());
+                            e.printStackTrace();
+                            callback.onError("Error parsing messages: " + e.getMessage());
+                        }
+                    } else {
+                        String error = os.length > 1 ? (String) os[1] : "No messages found";
+                        callback.onError(error);
+                    }
+                } else {
+                    callback.onError("No response from server");
+                }
+            }
+        });
+    }
+    
+    public interface GroupMessagesCallback {
+        void onSuccess(List<Model_Group_Message_Display> messages);
         void onError(String error);
     }
 

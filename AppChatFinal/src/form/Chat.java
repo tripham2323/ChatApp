@@ -4,6 +4,7 @@
  */
 package form;
 
+import app.MessageType;
 import component.Chat_Body;
 import component.Chat_Title;
 import component.chat_Bottom;
@@ -14,6 +15,7 @@ import model.Model_Receive_Message;
 import model.Model_Send_Message;
 import model.Model_User_Account;
 import model.Model_Voice_Receive;
+import model.Model_Group_Chat;
 import net.miginfocom.swing.MigLayout;
 import java.util.HashMap;
 import java.util.ArrayList;
@@ -54,35 +56,51 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
                 saveToChatHistory(user.getUserID(), data, true);
             }            @Override
             public void receiveMessage(Model_Receive_Message data, File file) {
-                System.out.println("=== RECEIVED MESSAGE ===");
+                System.out.println("=== RECEIVED PRIVATE MESSAGE ===");
                 System.out.println("From UserID: " + data.getFromUserID());
                 System.out.println("Message: " + data.getText());
                 System.out.println("Current chat user: " + (chatTitle.getUser() != null ? chatTitle.getUser().getUserID() : "null"));
                 
-                // Lưu tin nhắn vào lịch sử
+                // Lưu tin nhắn vào lịch sử LUÔN LUÔN (bất kể có hiển thị hay không)
                 int fromUserID = data.getFromUserID();
                 if (!chatHistory.containsKey(fromUserID)) {
                     chatHistory.put(fromUserID, new ArrayList<>());
                 }
                 Object[] messageInfo = new Object[]{data, false};
-                chatHistory.get(fromUserID).add(messageInfo);                // *** LUÔN HIỂN THỊ TIN NHẮN - BẮT BUỘC ***
-                System.out.println("*** FORCING MESSAGE DISPLAY - ABSOLUTE ***");
+                chatHistory.get(fromUserID).add(messageInfo);
                 
-                // Lấy thông tin thật của người gửi 
-                Model_User_Account sender = getRealUserInfo(fromUserID);
-                System.out.println("*** SENDER INFO: " + (sender != null ? sender.getUserName() + " (ID: " + sender.getUserID() + ")" : "null") + " ***");
-                  // HIỂN THỊ TIN NHẮN BÊN TRÁI (từ người khác) - BẮT BUỘC
-                System.out.println("*** ABOUT TO ADD MESSAGE TO CHATBODY ***");
-                System.out.println("ChatBody object: " + chatBody);
-                System.out.println("ChatBody class: " + (chatBody != null ? chatBody.getClass().getName() : "null"));
+                // *** CHỈ HIỂN THỊ TIN NHẮN KHI ĐANG CHAT VỚI NGƯỜI GỬI ***
+                // Kiểm tra: đang chat với đúng người gửi và không phải group chat
+                boolean isCorrectPrivateChat = (chatTitle.getUser() != null && 
+                                               chatTitle.getUser().getUserID() == fromUserID &&
+                                               chatTitle.getUser().getUserName() != null && 
+                                               !chatTitle.getUser().getUserName().startsWith("Group"));
                 
-                chatBody.addItemLeft(data, file, sender);
-                System.out.println("*** MESSAGE ABSOLUTELY DISPLAYED ON LEFT! ***");
-                  // FORCE REFRESH UI - BẮT BUỘC HIỂN THỊ
-                chatBody.revalidate();
-                chatBody.repaint();
-                Chat.this.revalidate();
-                Chat.this.repaint();
+                if (isCorrectPrivateChat) {
+                    System.out.println("*** DISPLAYING PRIVATE MESSAGE - CORRECT CHAT ***");
+                    
+                    // Lấy thông tin thật của người gửi 
+                    Model_User_Account sender = getRealUserInfo(fromUserID);
+                    System.out.println("*** SENDER INFO: " + (sender != null ? sender.getUserName() + " (ID: " + sender.getUserID() + ")" : "null") + " ***");
+                    
+                    // HIỂN THỊ TIN NHẮN BÊN TRÁI (từ người khác)
+                    System.out.println("*** ABOUT TO ADD MESSAGE TO CHATBODY ***");
+                    System.out.println("ChatBody object: " + chatBody);
+                    System.out.println("ChatBody class: " + (chatBody != null ? chatBody.getClass().getName() : "null"));
+                    
+                    chatBody.addItemLeft(data, file, sender);
+                    System.out.println("*** PRIVATE MESSAGE DISPLAYED ON LEFT! ***");
+                    
+                    // FORCE REFRESH UI
+                    chatBody.revalidate();
+                    chatBody.repaint();
+                    Chat.this.revalidate();
+                    Chat.this.repaint();
+                } else {
+                    System.out.println("*** PRIVATE MESSAGE NOT DISPLAYED - DIFFERENT CHAT ***");
+                    System.out.println("*** Message from: " + fromUserID + ", Current chat: " + 
+                                     (chatTitle.getUser() != null ? chatTitle.getUser().getUserID() : "none") + " ***");
+                }
                 
                 // Force scroll to bottom to see new message
                 javax.swing.SwingUtilities.invokeLater(() -> {
@@ -167,6 +185,74 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
     public void updateUser(Model_User_Account user){
         chatTitle.updateUser(user);
 
+    }
+    
+    // Method to set user for group chat (group info)
+    public void setGroup(Model_Group_Chat group) {
+        this.user = new Model_User_Account(); // Create a fake user object for group
+        this.user.setUserID(group.getGroupID());
+        this.user.setUserName(group.getGroupName());
+        this.user.setStatus(true); // Groups are always "online"
+        
+        chatTitle.setUserName(this.user);
+        chatBottom.setUser(this.user);
+        
+        // Clear current chat content
+        chatBody.clearChat();
+        
+        // Load group message history from database
+        loadGroupMessageHistory(group.getGroupID());
+    }
+      // Load group message history from database
+    private void loadGroupMessageHistory(int groupID) {
+        System.out.println("=== LOADING GROUP MESSAGE HISTORY FOR GROUP " + groupID + " ===");
+        
+        // TODO: Implement group message loading later to avoid compilation errors
+        System.out.println("Group message loading temporarily disabled");
+        
+        /*
+        service.Service.getInstance().loadGroupMessages(groupID, new service.Service.GroupMessagesCallback() {
+            @Override
+            public void onSuccess(java.util.List<model.Model_Group_Message_Display> messages) {
+                System.out.println("=== RECEIVED " + messages.size() + " GROUP MESSAGES FROM DB ===");
+                
+                // Display messages in chat UI
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    for (model.Model_Group_Message_Display msg : messages) {
+                        System.out.println("Displaying message: " + msg.getSenderName() + " - " + msg.getMessageContent());
+                        
+                        // Create Model_Receive_Message for display
+                        MessageType msgType = MessageType.TEXT; // Default to TEXT, could parse from messageType
+                        Model_Receive_Message displayMsg = new Model_Receive_Message(msgType, msg.getSenderID(), msg.getMessageContent());
+                        
+                        // Create sender info with avatar
+                        Model_User_Account senderInfo = new Model_User_Account();
+                        senderInfo.setUserID(msg.getSenderID());
+                        senderInfo.setUserName(msg.getSenderName());
+                        senderInfo.setImage(msg.getSenderAvatar());
+                        senderInfo.setStatus(true);
+                        
+                        // Display message with avatar
+                        chatBody.addItemLeft(displayMsg, null, senderInfo);
+                        
+                        System.out.println("Message displayed with avatar: " + 
+                                         (msg.getSenderAvatar() != null ? msg.getSenderAvatar().length + " bytes" : "no avatar"));
+                    }
+                    
+                    // Refresh UI
+                    chatBody.revalidate();
+                    chatBody.repaint();
+                    
+                    System.out.println("=== GROUP MESSAGE HISTORY LOADED AND DISPLAYED ===");
+                });
+            }
+            
+            @Override
+            public void onError(String error) {
+                System.err.println("=== ERROR LOADING GROUP MESSAGES: " + error + " ===");
+            }
+        });
+        */
     }
 
     /**
@@ -301,10 +387,11 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
         } catch (Exception e) {
             return null;
         }
-    }
-
-    // Phương thức load friends vào cache
+    }    // Phương thức load friends vào cache (tạm thời comment để tránh lỗi)
     private void loadFriendsCache() {
+        System.out.println("*** LOADING FRIENDS CACHE (DISABLED) ***");
+        // TODO: Fix Service implementation later
+        /*
         System.out.println("*** LOADING FRIENDS CACHE ***");
         try {
             service.Service.getInstance().getFriendsList(new service.Service.FriendsListCallback() {
@@ -334,10 +421,10 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
         } catch (Exception e) {
             System.err.println("*** ERROR INITIALIZING FRIENDS CACHE: " + e.getMessage() + " ***");
         }
-    }
+        */    }
     // Phương thức refresh friends cache (có thể gọi từ bên ngoài)
     public void refreshFriendsCache() {
-        System.out.println("*** REFRESHING FRIENDS CACHE ***");
-        loadFriendsCache();
+        System.out.println("*** REFRESHING FRIENDS CACHE (DISABLED) ***");
+        // loadFriendsCache();
     }
 }

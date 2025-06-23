@@ -56,9 +56,15 @@ public class ServiceUser {
     private final String GET_GROUP_MEMBERS = "select ua.UserID, ua.UserName, ua.Gender, ua.Image, gm.role " +
                                            "from group_members gm " +
                                            "join user_account ua on gm.userID = ua.UserID " +
-                                           "where gm.groupID = ? and gm.status = 'active' and ua.Status = '1'";
-    // Group message queries
+                                           "where gm.groupID = ? and gm.status = 'active' and ua.Status = '1'";    // Group message queries
     private final String SAVE_GROUP_MESSAGE = "insert into group_messages (groupID, senderID, messageType, messageContent, sentAt) values (?,?,?,?,NOW())";
+    private final String GET_GROUP_MESSAGES = "select gm.messageID, gm.senderID, gm.messageType, gm.messageContent, gm.sentAt, " +
+                                            "ua.UserName, ua.Image " +
+                                            "from group_messages gm " +
+                                            "join user_account ua on gm.senderID = ua.UserID " +
+                                            "where gm.groupID = ? " +
+                                            "order by gm.sentAt asc " +
+                                            "limit 50"; // Get last 50 messages
 
     //khởi tạo connect sql
     private final Connection con;
@@ -762,8 +768,7 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
         
         return members;
     }
-    
-    // Method to save group message
+      // Method to save group message
     public boolean saveGroupMessage(model.Model_Send_Message message) throws SQLException {
         Connection con = null;
         PreparedStatement p = null;
@@ -781,5 +786,49 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
         } finally {
             if (p != null) p.close();
         }
+    }
+    
+    // Method to get group messages from database
+    public List<model.Model_Group_Message> getGroupMessages(int groupID) throws SQLException {
+        List<model.Model_Group_Message> messages = new ArrayList<>();
+        PreparedStatement p = null;
+        ResultSet r = null;
+        
+        try {
+            p = con.prepareStatement(GET_GROUP_MESSAGES);
+            p.setInt(1, groupID);
+            r = p.executeQuery();
+            
+            while (r.next()) {
+                int messageID = r.getInt("messageID");
+                int senderID = r.getInt("senderID");
+                String messageType = r.getString("messageType");
+                String messageContent = r.getString("messageContent");
+                java.sql.Timestamp sentAt = r.getTimestamp("sentAt");
+                String senderName = r.getString("UserName");
+                byte[] senderImage = r.getBytes("Image");
+                
+                // Create message object with sender info
+                model.Model_Group_Message message = new model.Model_Group_Message();
+                message.setMessageID(messageID);
+                message.setGroupID(groupID);
+                message.setSenderID(senderID);
+                message.setMessageType(messageType);
+                message.setMessageContent(messageContent);
+                message.setSentAt(sentAt);
+                message.setSenderName(senderName);
+                message.setSenderImage(senderImage);
+                
+                messages.add(message);
+            }
+            
+            System.out.println("=== LOADED " + messages.size() + " MESSAGES FOR GROUP " + groupID + " ===");
+            
+        } finally {
+            if (r != null) r.close();
+            if (p != null) p.close();
+        }
+        
+        return messages;
     }
 }

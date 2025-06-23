@@ -22,9 +22,6 @@ import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.border.EmptyBorder;
-import model.Model_Send_Message;
-import model.Model_User_Account;
-import net.miginfocom.swing.MigLayout;
 import service.Service;
 import swing.JIMSendTextPane;
 import swing.ScrollBar;
@@ -125,7 +122,7 @@ public class chat_Bottom extends javax.swing.JPanel {
     private void eventSend(JIMSendTextPane txt){ //event gửi đoạn chat
                  String text = txt.getText().trim();
                 if(!text.equals("")){
-                    Model_Send_Message message = new Model_Send_Message(MessageType.TEXT, Service.getInstance().getUser().getUserID(), user.getUserID(), text);
+                    Model_Send_Message message = new Model_Send_Message(MessageType.TEXT, service.Service.getInstance().getUser().getUserID(), user.getUserID(), text);
                     send(message);
                     PublicEvent.getInstance().getEventChat().sendMessage(message);//thêm đoạn chat qua 
                     txt.setText("");
@@ -169,10 +166,11 @@ public class chat_Bottom extends javax.swing.JPanel {
             service.Service.getInstance().getClient().emit("send_to_user", messageData);
             System.out.println("*** EMIT COMPLETED ***");
         }
-    }      private boolean isGroupChat() {
+    }    private boolean isGroupChat() {
         // Check if the user object represents a group
-        // For now, return false to avoid compilation error
-        return false;
+        // A group chat is identified by having a special flag or by checking the user ID range
+        // Groups typically have negative IDs or a specific range, or we can add a flag
+        return user != null && user.isGroup();
     }
     private void refresh(){
         revalidate();

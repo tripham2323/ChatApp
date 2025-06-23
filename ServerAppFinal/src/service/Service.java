@@ -327,6 +327,55 @@ public class Service {
         });
         System.out.println("=== EVENT LISTENER REGISTERED: send_to_group ===");
         
+        // Event listener for loading group messages from database
+        server.addEventListener("load_group_messages", Object.class, new DataListener<Object>() {
+            @Override
+            public void onData(SocketIOClient socketClient, Object data, AckRequest ar) throws Exception {
+                System.out.println("=== SERVER RECEIVED LOAD GROUP MESSAGES REQUEST ===");
+                System.out.println("Data: " + data);
+                
+                try {
+                    int groupID = 0;
+                    if (data instanceof Number) {
+                        groupID = ((Number) data).intValue();
+                    } else if (data instanceof java.util.Map) {
+                        @SuppressWarnings("unchecked")
+                        java.util.Map<String, Object> requestData = (java.util.Map<String, Object>) data;
+                        groupID = ((Number) requestData.get("groupID")).intValue();
+                    }
+                    
+                    System.out.println("Loading messages for group ID: " + groupID);
+                    
+                    // Get messages from database
+                    List<model.Model_Group_Message> messages = serviceUser.getGroupMessages(groupID);
+                    
+                    // Convert to format suitable for client
+                    List<java.util.Map<String, Object>> messageList = new ArrayList<>();
+                    for (model.Model_Group_Message msg : messages) {
+                        java.util.Map<String, Object> messageData = new java.util.HashMap<>();
+                        messageData.put("messageID", msg.getMessageID());
+                        messageData.put("groupID", msg.getGroupID());
+                        messageData.put("senderID", msg.getSenderID());
+                        messageData.put("messageType", msg.getMessageType());
+                        messageData.put("messageContent", msg.getMessageContent());
+                        messageData.put("sentAt", msg.getSentAt().getTime());
+                        messageData.put("senderName", msg.getSenderName());
+                        messageData.put("senderAvatar", msg.getSenderImage());
+                        
+                        messageList.add(messageData);
+                    }
+                    
+                    System.out.println("Sending " + messageList.size() + " messages to client");
+                    ar.sendAckData(true, messageList);
+                    
+                } catch (Exception e) {
+                    System.err.println("Error loading group messages: " + e.getMessage());
+                    e.printStackTrace();
+                    ar.sendAckData(false, "Error loading messages: " + e.getMessage());
+                }
+            }
+        });
+        
         server.addEventListener("download", Model_Package_Sender.class, new DataListener<Model_Package_Sender>() {
             @Override
             public void onData(SocketIOClient socketClient, Model_Package_Sender t, AckRequest ar) throws Exception {
