@@ -250,8 +250,7 @@ private void scrollToBottom() {
         }
     };
     verticalBar.addAdjustmentListener(downScroller);
-}
-    // Variables declaration - do not modify//GEN-BEGIN:variables
+}    // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel body;
     private javax.swing.JScrollPane sp;
     // End of variables declaration//GEN-END:variables

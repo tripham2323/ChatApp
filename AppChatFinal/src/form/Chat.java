@@ -137,20 +137,31 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
                 System.out.println("Group ID: " + groupID);
                 System.out.println("Sender: " + (senderInfo != null ? senderInfo.getUserName() : "Unknown"));
                 System.out.println("Message: " + data.getText());
-                
-                // Lưu tin nhắn vào lịch sử nhóm (sử dụng groupID âm để phân biệt với user)
+                  // Lưu tin nhắn vào lịch sử nhóm (sử dụng groupID âm để phân biệt với user)
                 int groupKey = -groupID; // Use negative to distinguish from userID
                 if (!chatHistory.containsKey(groupKey)) {
                     chatHistory.put(groupKey, new ArrayList<>());
                 }
-                Object[] messageInfo = new Object[]{data, false, senderInfo}; // Add sender info
+                  // Kiểm tra xem tin nhắn có phải từ người dùng hiện tại không để lưu đúng flag
+                Model_User_Account currentUser = service.Service.getInstance().getUser();
+                boolean isFromCurrentUser = (senderInfo != null && currentUser != null && senderInfo.getUserID() == currentUser.getUserID());
+                Object[] messageInfo = new Object[]{data, isFromCurrentUser, senderInfo}; // Add sender info and current user flag
                 chatHistory.get(groupKey).add(messageInfo);
-                
-                // Kiểm tra xem có đang chat với nhóm này không
+                  // Kiểm tra xem có đang chat với nhóm này không
                 if (chatTitle.getUser() != null && chatTitle.getUser().getUserID() == groupID) {
                     System.out.println("Displaying group message in current chat");
-                    // Hiển thị tin nhắn với avatar của người gửi
-                    chatBody.addItemLeft(data, null, senderInfo);
+                      // Kiểm tra xem tin nhắn có phải từ người dùng hiện tại không
+                    if (senderInfo != null && currentUser != null && senderInfo.getUserID() == currentUser.getUserID()) {
+                        // Tin nhắn từ người dùng hiện tại - hiển thị bên phải
+                        System.out.println("Message from current user - displaying on right");
+                          // Convert Model_Receive_Message to Model_Send_Message để sử dụng addItemRight
+                        Model_Send_Message sendMessage = new Model_Send_Message(data.getMessageType(), data.getFromUserID(), groupID, data.getText());
+                        chatBody.addItemRight(sendMessage);
+                    } else {
+                        // Tin nhắn từ người khác trong nhóm - hiển thị bên trái với avatar của người gửi
+                        System.out.println("Message from other user - displaying on left with sender avatar");
+                        chatBody.addItemLeft(data, null, senderInfo);
+                    }
                 } else {
                     System.out.println("Not currently chatting with this group (current: " + 
                                      (chatTitle.getUser() != null ? chatTitle.getUser().getUserID() : "none") + 
@@ -251,15 +262,23 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
                                     msg.getSenderID(), 
                                     msg.getMessageContent()
                                 );
-                                
-                                // Tạo sender info với avatar
+                                  // Tạo sender info với avatar
                                 Model_User_Account senderInfo = new Model_User_Account();
                                 senderInfo.setUserID(msg.getSenderID());
                                 senderInfo.setUserName(msg.getSenderName());
                                 senderInfo.setImage(msg.getSenderAvatar());
-                                
-                                // Hiển thị tin nhắn
-                                chatBody.addItemLeft(receiveMsg, null, senderInfo);
+                                  // Kiểm tra xem tin nhắn có phải từ người dùng hiện tại không
+                                Model_User_Account currentUser = service.Service.getInstance().getUser();
+                                if (currentUser != null && msg.getSenderID() == currentUser.getUserID()) {
+                                    // Tin nhắn từ người dùng hiện tại - hiển thị bên phải
+                                    System.out.println("History message from current user - displaying on right");
+                                    Model_Send_Message sendMessage = new Model_Send_Message(msgType, msg.getSenderID(), groupID, msg.getMessageContent());
+                                    chatBody.addItemRight(sendMessage);
+                                } else {
+                                    // Tin nhắn từ người khác - hiển thị bên trái với avatar
+                                    System.out.println("History message from other user - displaying on left");
+                                    chatBody.addItemLeft(receiveMsg, null, senderInfo);
+                                }
                                 
                                 System.out.println("Displayed message from " + msg.getSenderName() + ": " + msg.getMessageContent());
                                 
