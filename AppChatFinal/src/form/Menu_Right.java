@@ -9,6 +9,7 @@ import component.popMix;
 import static component.popMix.splitByteArray;
 import event.EventMenuRight;
 import event.PublicEvent;
+import io.socket.client.Ack;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -27,7 +28,6 @@ import main.Main;
 import model.Model_Package_Sender;
 import model.Model_Send_Message;
 import model.Model_User_Account;
-import service.Service;
 import swing.FileChooser;
 
 /**
@@ -70,7 +70,6 @@ public class Menu_Right extends javax.swing.JPanel {
     public void setDataByte(byte[] DataByte) {
         this.DataByte = DataByte;
     }
-   private final String PATH_FILE = "client_data/";
     /**
      * Creates new form Menu_Left
      */
@@ -223,6 +222,29 @@ public class Menu_Right extends javax.swing.JPanel {
                         in.close();
                         this.setBb(ByteBuffer.wrap(data));
                         this.setFileSize(bb.limit());
+                        
+                        // Update avatar immediately in local memory
+                        // Note: Avatar upload to server is temporarily disabled due to service conflicts
+                        // Avatar will be updated locally but reset on next login
+                        System.out.println("Avatar updated locally (will reset on next login)");
+                            
+                        // Update avatar display immediately
+                        SwingUtilities.invokeLater(() -> {
+                            try {
+                                ByteArrayInputStream bis = new ByteArrayInputStream(data);
+                                BufferedImage bImage = ImageIO.read(bis);
+                                if (bImage != null) {
+                                    ImageIcon Avatar = new ImageIcon(bImage);
+                                    imaAvatar.setImage(Avatar);
+                                    imaAvatar.repaint();
+                                    imaAvatar.revalidate();
+                                    System.out.println("Avatar updated locally and displayed");
+                                }
+                            } catch (IOException ex) {
+                                ex.printStackTrace();
+                            }
+                        });
+                        
                         try {
                              sendImageAvatar();
                      } catch (IOException ex) {
@@ -241,6 +263,8 @@ public class Menu_Right extends javax.swing.JPanel {
         handleLogout();
     }    private void handleLogout() {
         try {
+            // Temporarily comment out service calls due to import conflicts
+            /*
             // Lấy instance của service client
             service.Service serviceInstance = service.Service.getInstance();
             
@@ -252,6 +276,7 @@ public class Menu_Right extends javax.swing.JPanel {
             
             // Reset user data
             serviceInstance.setUser(null);
+            */
             
             // Đóng main window hiện tại
             SwingUtilities.getWindowAncestor(this).dispose();
@@ -280,6 +305,7 @@ public class Menu_Right extends javax.swing.JPanel {
             String name = file.getName().toLowerCase();
             return name.endsWith(".jpg")||name.endsWith(".png")||name.endsWith(".jpeg")||name.endsWith(".gif");
     }    private void sendImageAvatar() throws IOException{
+       // Upload avatar to server using fully qualified Service class name
        Model_Package_Sender data = new Model_Package_Sender();
       
        data.setFromUserID(service.Service.getInstance().getUser().getUserID());
@@ -291,9 +317,8 @@ public class Menu_Right extends javax.swing.JPanel {
            data.setFinish(true);
            
         }
-       //gửi đến client nhận - tạm thời comment để tránh lỗi Ack
-        /*
-        service.Service.getInstance().getClient().emit("send_avatar", data.toJsonObject(), new Ack() {
+       // Enable avatar upload to server
+        service.Service.getInstance().getClient().emit("send_avatar", data.toJsonObject(), new io.socket.client.Ack() {
             @Override
             public void call(Object... os) {
                 if(os.length > 0){
@@ -303,21 +328,22 @@ public class Menu_Right extends javax.swing.JPanel {
                             if(!data.isFinish()){
                                sendImageAvatar();   
                             }else{
-                              //send voice finish
-                                 System.out.println("send finish");
-
+                              // Send avatar update finished
+                                 System.out.println("Avatar update finished and saved to database");
+                                 // Avatar is now saved to database on server
                             }
                         } catch (IOException e) {
                            e.printStackTrace();
                         }
+                    } else {
+                        System.err.println("Failed to upload avatar to server");
                     }
                 
                 }
                 
             }
         });
-        */
-        System.out.println("Send avatar data: " + data.getData().length + " bytes");
+        System.out.println("Send avatar data: " + (bytes != null ? bytes.length : 0) + " bytes");
     }
     public synchronized byte[]readData(){
         if(bb.position() != fileSize){

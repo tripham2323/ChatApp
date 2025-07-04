@@ -104,7 +104,8 @@ public class Service {
                 Model_User_Account login = serviceUser.login(t);
                 if(login != null){
                    ar.sendAckData(true, login);
-                   login.setImage(null);
+                   // Don't set image to null - keep avatar data in server memory
+                   // login.setImage(null);
                     addClient(socketClient, login);
                     userConnect(login);
                 } else{
