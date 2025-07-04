@@ -6,21 +6,19 @@ package component;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import model.Model_Group_Chat;
 import model.Model_User_Account;
-import service.Service;
 import swing.ScrollBar;
 
 /**
  *
  * @author Admin
  */
-public class MenuGroup extends JPanel {
+public class MenuGroup extends JPanel implements Item_Group.SelectionCallback {
     private JButton createGroupButton;
     private JPanel groupListPanel;
     private JScrollPane scrollPane;
@@ -150,7 +148,7 @@ public class MenuGroup extends JPanel {
         }
         
         for (Model_Group_Chat group : groups) {
-            Item_Group groupItem = new Item_Group(group);
+            Item_Group groupItem = new Item_Group(group, this);
             groupItems.add(groupItem);
             groupListPanel.add(groupItem);
             groupListPanel.add(Box.createVerticalStrut(2));
@@ -162,7 +160,7 @@ public class MenuGroup extends JPanel {
     
     public void addGroup(Model_Group_Chat group) {
         // Add a new group to the list
-        Item_Group groupItem = new Item_Group(group);
+        Item_Group groupItem = new Item_Group(group, this);
         groupItems.add(groupItem);
         
         // If this is the first group, clear empty state
@@ -204,5 +202,19 @@ public class MenuGroup extends JPanel {
     
     public List<Item_Group> getGroupItems() {
         return groupItems;
+    }
+    
+    @Override
+    public void onItemSelected(Item_Group selectedItem) {
+        // Deselect all groups first
+        for (Item_Group item : groupItems) {
+            item.setSelected(false);
+        }
+        
+        // Select the clicked item
+        selectedItem.setSelected(true);
+        
+        // Repaint to update visual state
+        repaint();
     }
 }

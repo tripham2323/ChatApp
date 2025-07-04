@@ -1,6 +1,15 @@
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ * Click nbfs://nbhost/SystemFi              @Override
+            public void mousePressed(MouseEvent e) {
+                // Handle group selection and open chat
+                if (selectionCallback != null) {
+                    selectionCallback.onItemSelected(Item_Group.this);
+                } else {
+                    setSelected(true);
+                }
+                openGroupChat();
+            }em/Templates/Classes/Class.java to edit this template
  */
 package component;
 
@@ -20,13 +29,30 @@ import event.PublicEvent;
  * @author Admin
  */
 public class Item_Group extends JPanel {
+    
+    // Callback interface for selection events
+    public interface SelectionCallback {
+        void onItemSelected(Item_Group item);
+    }
+    
     private Model_Group_Chat group;
     private boolean mouseOver;
     private boolean isSelected;
+    private SelectionCallback selectionCallback;
     
     public Item_Group(Model_Group_Chat group) {
         this.group = group;
         initComponents();
+    }
+    
+    public Item_Group(Model_Group_Chat group, SelectionCallback callback) {
+        this.group = group;
+        this.selectionCallback = callback;
+        initComponents();
+    }
+    
+    public void setSelectionCallback(SelectionCallback callback) {
+        this.selectionCallback = callback;
     }
     
     private void initComponents() {
@@ -123,6 +149,11 @@ public class Item_Group extends JPanel {
                 // Handle group selection and open chat
                 setSelected(true);
                 openGroupChat();
+                
+                // Notify selection callback
+                if (selectionCallback != null) {
+                    selectionCallback.onItemSelected(Item_Group.this);
+                }
             }
         });
     }

@@ -17,7 +17,7 @@ import swing.ScrollBar;
  *
  * @author Admin
  */
-public class Menu_Left extends javax.swing.JPanel {
+public class Menu_Left extends javax.swing.JPanel implements component.Item_Group.SelectionCallback {
     private List<Model_User_Account> userAccount;
     private List<Model_User_Account> friendsList; // Danh sách bạn bè
     private component.FriendSearchPanelNew friendSearchPanel;
@@ -172,7 +172,7 @@ public class Menu_Left extends javax.swing.JPanel {
             Object serviceObj = Class.forName("service.Service").getMethod("getInstance").invoke(null);
             System.out.println("Service instance: " + serviceObj);
             
-            // Check if user is available using reflection to avoid import issues
+            // Check if user is available using reflection
             System.out.println("=== DEBUG: Getting user from Service ===");
             Object user = serviceObj.getClass().getMethod("getUser").invoke(serviceObj);
             System.out.println("User object: " + user);
@@ -579,7 +579,7 @@ public class Menu_Left extends javax.swing.JPanel {
             System.out.println("- Group Name: " + group.getGroupName());
             System.out.println("- Created By: " + group.getCreatedBy());
             
-            component.Item_Group groupItem = new component.Item_Group(group);
+            component.Item_Group groupItem = new component.Item_Group(group, this);
             groupItems.add(groupItem);
             groupListPanel.add(groupItem);
             groupListPanel.add(javax.swing.Box.createVerticalStrut(2));
@@ -625,7 +625,23 @@ public class Menu_Left extends javax.swing.JPanel {
         }
         return null;
     }
-
+    
+    @Override
+    public void onItemSelected(component.Item_Group selectedItem) {
+        // Deselect all groups first
+        for (component.Item_Group item : groupItems) {
+            item.setSelected(false);
+        }
+        
+        // Select the clicked item
+        selectedItem.setSelected(true);
+        
+        // Repaint to update visual state
+        // Find the parent panel and repaint it
+        if (menuList != null) {
+            menuList.repaint();
+        }
+    }
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLayeredPane menu;
     private component.MenuButton menuBox;
