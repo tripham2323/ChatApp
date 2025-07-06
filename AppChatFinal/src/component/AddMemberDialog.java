@@ -188,7 +188,17 @@ public class AddMemberDialog extends JDialog {
             System.out.println("Adding " + availableFriends.size() + " friend items to UI");
             for (Model_User_Account friend : availableFriends) {
                 System.out.println("Adding friend item: " + friend.getUserName() + " (ID: " + friend.getUserID() + ")");
-                FriendItem friendItem = new FriendItem(friend);
+                
+                // Kiểm tra xem friend này đã được chọn chưa
+                boolean isAlreadySelected = false;
+                for (Model_User_Account selectedMember : selectedMembers) {
+                    if (selectedMember.getUserID() == friend.getUserID()) {
+                        isAlreadySelected = true;
+                        break;
+                    }
+                }
+                
+                FriendItem friendItem = new FriendItem(friend, isAlreadySelected);
                 membersPanel.add(friendItem);
             }
         }
@@ -225,7 +235,16 @@ public class AddMemberDialog extends JDialog {
             membersPanel.add(noResultsLabel);
         } else {
             for (Model_User_Account friend : filteredFriends) {
-                FriendItem friendItem = new FriendItem(friend);
+                // Kiểm tra xem friend này đã được chọn chưa
+                boolean isAlreadySelected = false;
+                for (Model_User_Account selectedMember : selectedMembers) {
+                    if (selectedMember.getUserID() == friend.getUserID()) {
+                        isAlreadySelected = true;
+                        break;
+                    }
+                }
+                
+                FriendItem friendItem = new FriendItem(friend, isAlreadySelected);
                 membersPanel.add(friendItem);
             }
         }
@@ -389,13 +408,17 @@ public class AddMemberDialog extends JDialog {
         private JCheckBox checkBox;
         
         public FriendItem(Model_User_Account friend) {
-            this.friend = friend;
-            initItem();
+            this(friend, false); // Default to not selected
         }
         
-        private void initItem() {
+        public FriendItem(Model_User_Account friend, boolean isSelected) {
+            this.friend = friend;
+            initItem(isSelected);
+        }
+        
+        private void initItem(boolean isSelected) {
             setLayout(new BorderLayout());
-            setBackground(Color.WHITE);
+            setBackground(isSelected ? new Color(232, 245, 255) : Color.WHITE);
             setBorder(new EmptyBorder(12, 25, 12, 25));
             setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
             
@@ -455,14 +478,26 @@ public class AddMemberDialog extends JDialog {
             checkBox = new JCheckBox();
             checkBox.setOpaque(false);
             checkBox.setFocusPainted(false);
+            checkBox.setSelected(isSelected); // Set initial state based on parameter
             checkBox.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     if (checkBox.isSelected()) {
-                        selectedMembers.add(friend);
+                        // Only add if not already in selectedMembers
+                        boolean alreadySelected = false;
+                        for (Model_User_Account selectedMember : selectedMembers) {
+                            if (selectedMember.getUserID() == friend.getUserID()) {
+                                alreadySelected = true;
+                                break;
+                            }
+                        }
+                        if (!alreadySelected) {
+                            selectedMembers.add(friend);
+                        }
                         setBackground(new Color(232, 245, 255)); // Light blue when selected
                     } else {
-                        selectedMembers.remove(friend);
+                        // Remove from selectedMembers
+                        selectedMembers.removeIf(member -> member.getUserID() == friend.getUserID());
                         setBackground(Color.WHITE);
                     }
                     updateSelectedCount();
@@ -552,7 +587,7 @@ public class AddMemberDialog extends JDialog {
                     // Tạo timeout để xử lý trường hợp getGroupMembers không trả về
                     final boolean[] responseReceived = {false};
                     
-                    // Tạo timer để timeout sau 5 giây
+                    // Tạo timer để timeout sau 3 giây
                     Timer timeoutTimer = new Timer(300, new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {

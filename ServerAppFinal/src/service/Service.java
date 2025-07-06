@@ -747,6 +747,37 @@ public class Service {
                 }
             }
         });
+        
+        // Get group members event handler
+        server.addEventListener("get_group_members", Integer.class, new DataListener<Integer>() {
+            @Override
+            public void onData(SocketIOClient socketClient, Integer groupID, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== SERVER RECEIVED GET_GROUP_MEMBERS REQUEST ===");
+                    System.out.println("Group ID: " + groupID);
+                    
+                    List<Model_User_Account> groupMembers = serviceUser.getGroupMembers(groupID);
+                    System.out.println("Group " + groupID + " has " + groupMembers.size() + " members");
+                    
+                    // Prepare response data
+                    Object[] responseData = new Object[groupMembers.size() + 1];
+                    responseData[0] = true; // success flag
+                    
+                    for (int i = 0; i < groupMembers.size(); i++) {
+                        Model_User_Account member = groupMembers.get(i);
+                        System.out.println("Member: " + member.getUserName() + " (ID: " + member.getUserID() + ")");
+                        responseData[i + 1] = member;
+                    }
+                    
+                    ar.sendAckData(responseData);
+                    textArea.append("Group members retrieved for GroupID: " + groupID + " (" + groupMembers.size() + " members)\n");
+                } catch (Exception e) {
+                    System.err.println("Error getting group members: " + e.getMessage());
+                    e.printStackTrace();
+                    ar.sendAckData(false, "Error retrieving group members: " + e.getMessage());
+                }
+            }
+        });
 
         server.start();
         textArea.append("Server bắt đầu khởi tạo trên cổng : "+PORT_NUMBER+"\n");
