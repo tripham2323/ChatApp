@@ -399,21 +399,31 @@ public class AddMemberDialog extends JDialog {
             setBorder(new EmptyBorder(12, 25, 12, 25));
             setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
             
-            // Avatar - giống CreateGroupDialog
+            // Avatar with user's actual image - giống CreateGroupDialog
             JLabel avatarLabel = new JLabel();
             avatarLabel.setPreferredSize(new Dimension(45, 45));
-            avatarLabel.setBackground(new Color(33, 150, 243));
-            avatarLabel.setOpaque(true);
             avatarLabel.setHorizontalAlignment(JLabel.CENTER);
-            avatarLabel.setForeground(Color.WHITE);
-            avatarLabel.setFont(new Font("JetBrains Mono", Font.BOLD, 18));
+            avatarLabel.setVerticalAlignment(JLabel.CENTER);
             
-            // Make avatar circular
-            avatarLabel.setBorder(BorderFactory.createEmptyBorder());
-            
-            // Set first letter of name as avatar
-            if (friend.getUserName() != null && !friend.getUserName().isEmpty()) {
-                avatarLabel.setText(friend.getUserName().substring(0, 1).toUpperCase());
+            // Check if user has image data
+            if (friend.getImage() != null && friend.getImage().length > 0) {
+                try {
+                    // Create ImageIcon from byte array
+                    ImageIcon originalIcon = new ImageIcon(friend.getImage());
+                    
+                    // Scale image to fit avatar size (45x45)
+                    Image scaledImage = originalIcon.getImage().getScaledInstance(45, 45, Image.SCALE_SMOOTH);
+                    ImageIcon scaledIcon = new ImageIcon(scaledImage);
+                    
+                    avatarLabel.setIcon(scaledIcon);
+                    avatarLabel.setOpaque(false);
+                } catch (Exception e) {
+                    // If image loading fails, fall back to text avatar
+                    setTextAvatar(avatarLabel, friend);
+                }
+            } else {
+                // No image, use text avatar
+                setTextAvatar(avatarLabel, friend);
             }
             
             add(avatarLabel, BorderLayout.WEST);
@@ -543,7 +553,7 @@ public class AddMemberDialog extends JDialog {
                     final boolean[] responseReceived = {false};
                     
                     // Tạo timer để timeout sau 5 giây
-                    Timer timeoutTimer = new Timer(500, new ActionListener() {
+                    Timer timeoutTimer = new Timer(300, new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
                             if (!responseReceived[0]) {
@@ -678,6 +688,18 @@ public class AddMemberDialog extends JDialog {
                     JOptionPane.ERROR_MESSAGE);
                 dispose();
             });
+        }
+    }
+    
+    private void setTextAvatar(JLabel avatarLabel, Model_User_Account friend) {
+        avatarLabel.setOpaque(true);
+        avatarLabel.setBackground(new Color(33, 150, 243));
+        avatarLabel.setForeground(Color.WHITE);
+        avatarLabel.setFont(new Font("JetBrains Mono", Font.BOLD, 18));
+        if (friend.getUserName() != null && !friend.getUserName().isEmpty()) {
+            avatarLabel.setText(friend.getUserName().substring(0, 1).toUpperCase());
+        } else {
+            avatarLabel.setText("?");
         }
     }
 }
