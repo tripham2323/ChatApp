@@ -1,15 +1,6 @@
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFi              @Override
-            public void mousePressed(MouseEvent e) {
-                // Handle group selection and open chat
-                if (selectionCallback != null) {
-                    selectionCallback.onItemSelected(Item_Group.this);
-                } else {
-                    setSelected(true);
-                }
-                openGroupChat();
-            }em/Templates/Classes/Class.java to edit this template
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
 package component;
 

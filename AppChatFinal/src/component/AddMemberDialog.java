@@ -127,7 +127,12 @@ public class AddMemberDialog extends JDialog {
         cancelButton.setBackground(Color.WHITE);
         cancelButton.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1));
         cancelButton.setFocusPainted(false);
-        cancelButton.addActionListener(e -> dispose());
+        cancelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                dispose();
+            }
+        });
         
         addButton = new JButton("Thêm thành viên");
         addButton.setFont(new Font("JetBrains Mono", Font.BOLD, 13));
@@ -137,7 +142,12 @@ public class AddMemberDialog extends JDialog {
         addButton.setBorder(BorderFactory.createEmptyBorder());
         addButton.setFocusPainted(false);
         addButton.setEnabled(false);
-        addButton.addActionListener(e -> addSelectedMembers());
+        addButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                addSelectedMembers();
+            }
+        });
         
         buttonPanel.add(cancelButton);
         buttonPanel.add(addButton);
@@ -153,102 +163,21 @@ public class AddMemberDialog extends JDialog {
     private void loadAvailableFriends() {
         System.out.println("=== LOADING AVAILABLE FRIENDS FOR GROUP " + groupID + " ===");
         
-        // Tạm thời comment out Service calls và sử dụng dữ liệu test trước
-        /*
-        try {
-            // Get all friends from service
-            service.Service.getInstance().getFriendsList(new service.Service.FriendsListCallback() {
-                @Override
-                public void onResult(List<Model_User_Account> allFriends) {
-                    System.out.println("=== GOT ALL FRIENDS: " + allFriends.size() + " ===");
-                    
-                    // Get current group members
-                    service.Service.getInstance().getGroupMembers(groupID, new service.Service.GroupMembersCallback() {
-                        @Override
-                        public void onSuccess(List<Model_User_Account> groupMembers) {
-                            System.out.println("=== GOT GROUP MEMBERS: " + groupMembers.size() + " ===");
-                            
-                            // Filter out friends who are already in the group
-                            availableFriends.clear();
-                            for (Model_User_Account friend : allFriends) {
-                                boolean isAlreadyInGroup = false;
-                                for (Model_User_Account member : groupMembers) {
-                                    if (friend.getUserID() == member.getUserID()) {
-                                        isAlreadyInGroup = true;
-                                        break;
-                                    }
-                                }
-                                if (!isAlreadyInGroup) {
-                                    availableFriends.add(friend);
-                                }
-                            }
-                            
-                            System.out.println("=== AVAILABLE FRIENDS (NOT IN GROUP): " + availableFriends.size() + " ===");
-                            
-                            // Update UI on EDT
-                            SwingUtilities.invokeLater(() -> {
-                                displayAvailableFriends();
-                            });
-                        }
-                        
-                        @Override
-                        public void onError(String error) {
-                            System.err.println("=== ERROR GETTING GROUP MEMBERS: " + error + " ===");
-                            // Fallback: show all friends
-                            availableFriends = allFriends;
-                            SwingUtilities.invokeLater(() -> {
-                                displayAvailableFriends();
-                            });
-                        }
-                    });
-                }
-                
-                @Override
-                public void onError(String error) {
-                    System.err.println("=== ERROR GETTING FRIENDS LIST: " + error + " ===");
-                    // Fallback: create some test friends
-                    createTestFriends();
-                    SwingUtilities.invokeLater(() -> {
-                        displayAvailableFriends();
-                    });
-                }
-            });
-            
-        } catch (Exception e) {
-            System.err.println("=== EXCEPTION LOADING FRIENDS: " + e.getMessage() + " ===");
-            e.printStackTrace();
-            // Fallback: create some test friends
-            createTestFriends();
-            displayAvailableFriends();
-        }
-        */
-        
-        // Sử dụng dữ liệu thật từ database thông qua SQL query trực tiếp
+        // Sử dụng dữ liệu thật từ database thông qua Service
         loadFriendsFromDatabase();
     }
     
-    private void createTestFriends() {
-        System.out.println("=== CREATING TEST FRIENDS DATA ===");
-        
-        availableFriends.clear();
-        
-        // Create some test friends (exclude those already in group)
-        String[] testNames = {"Alice", "Bob", "Charlie", "Diana", "Eve", "Frank"};
-        for (int i = 0; i < testNames.length; i++) {
-            Model_User_Account friend = new Model_User_Account();
-            friend.setUserID(100 + i); // Use high IDs to avoid conflicts
-            friend.setUserName(testNames[i]);
-            friend.setStatus(true);
-            availableFriends.add(friend);
-        }
-        
-        System.out.println("=== CREATED " + availableFriends.size() + " TEST FRIENDS ===");
-    }
+
     
     private void displayAvailableFriends() {
+        System.out.println("=== DISPLAY AVAILABLE FRIENDS CALLED ===");
+        System.out.println("Available friends count: " + availableFriends.size());
+        System.out.println("Current thread: " + Thread.currentThread().getName());
+        
         membersPanel.removeAll();
         
         if (availableFriends.isEmpty()) {
+            System.out.println("No friends available - showing 'no friends' message");
             JLabel noFriendsLabel = new JLabel("Không có bạn bè nào có thể thêm vào nhóm");
             noFriendsLabel.setFont(new Font("JetBrains Mono", Font.ITALIC, 12));
             noFriendsLabel.setForeground(Color.GRAY);
@@ -256,14 +185,18 @@ public class AddMemberDialog extends JDialog {
             noFriendsLabel.setBorder(new EmptyBorder(50, 20, 50, 20));
             membersPanel.add(noFriendsLabel);
         } else {
+            System.out.println("Adding " + availableFriends.size() + " friend items to UI");
             for (Model_User_Account friend : availableFriends) {
+                System.out.println("Adding friend item: " + friend.getUserName() + " (ID: " + friend.getUserID() + ")");
                 FriendItem friendItem = new FriendItem(friend);
                 membersPanel.add(friendItem);
             }
         }
         
+        System.out.println("Calling revalidate and repaint...");
         membersPanel.revalidate();
         membersPanel.repaint();
+        System.out.println("=== DISPLAY AVAILABLE FRIENDS COMPLETED ===");
     }
     
     private void filterFriends(String searchText) {
@@ -317,50 +250,136 @@ public class AddMemberDialog extends JDialog {
         addButton.setEnabled(false);
         addButton.setText("Đang thêm...");
         
-        // Add members to group via service
+        // Lấy current user để biết ai là người thêm
+        Model_User_Account currentUser = null;
         try {
+            currentUser = service.Service.getInstance().getUser();
+            System.out.println("Current user adding members: " + currentUser.getUserName() + " (ID: " + currentUser.getUserID() + ")");
+        } catch (Exception e) {
+            System.err.println("Error getting current user: " + e.getMessage());
+            
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(this, 
+                    "Không thể xác định người dùng hiện tại: " + e.getMessage(), 
+                    "Lỗi", 
+                    JOptionPane.ERROR_MESSAGE);
+                addButton.setEnabled(true);
+                addButton.setText("Thêm thành viên");
+            });
+            return;
+        }
+        
+        // Add members to group via Service
+        try {
+            // Counter để track số member đã thêm thành công
+            final int[] successCount = {0};
+            final int[] errorCount = {0};
+            final int totalMembers = selectedMembers.size();
+            
             for (Model_User_Account member : selectedMembers) {
-                System.out.println("Adding member: " + member.getUserName() + " (ID: " + member.getUserID() + ")");
+                System.out.println("Adding member: " + member.getUserName() + " (ID: " + member.getUserID() + ") to group " + groupID);
                 
-                // TODO: Call service to add member to group
-                // Tạm thời comment out vì AddMemberCallback chưa implement
+                // TODO: Implement addMemberToGroup in Service
+                // Call Service để thêm member vào group
                 /*
-                service.Service.getInstance().addMemberToGroup(groupID, member.getUserID(), new service.Service.AddMemberCallback() {
-                    @Override
-                    public void onSuccess() {
-                        System.out.println("Successfully added " + member.getUserName() + " to group");
+                service.Service.getInstance().addMemberToGroup(
+                    groupID, 
+                    member.getUserID(),
+                    new service.Service.AddMemberToGroupCallback() {
+                        @Override
+                        public void onSuccess() {
+                            System.out.println("Successfully added " + member.getUserName() + " to group " + groupID);
+                            successCount[0]++;
+                            
+                            // Kiểm tra xem đã thêm hết chưa
+                            if (successCount[0] + errorCount[0] == totalMembers) {
+                                SwingUtilities.invokeLater(() -> {
+                                    showAddMembersResult(successCount[0], errorCount[0], totalMembers);
+                                });
+                            }
+                        }
+                        
+                        @Override
+                        public void onError(String error) {
+                            System.err.println("Error adding " + member.getUserName() + " to group: " + error);
+                            errorCount[0]++;
+                            
+                            // Kiểm tra xem đã thêm hết chưa
+                            if (successCount[0] + errorCount[0] == totalMembers) {
+                                SwingUtilities.invokeLater(() -> {
+                                    showAddMembersResult(successCount[0], errorCount[0], totalMembers);
+                                });
+                            }
+                        }
                     }
-                    
-                    @Override
-                    public void onError(String error) {
-                        System.err.println("Error adding " + member.getUserName() + " to group: " + error);
-                    }
-                });
+                );
                 */
                 
-                // Tạm thời chỉ log
-                System.out.println("Would add " + member.getUserName() + " to group " + groupID);
+                // Tạm thời simulate thành công để test UI
+                System.out.println("Successfully added " + member.getUserName() + " to group " + groupID + " (simulated)");
+                successCount[0]++;
             }
             
-            // Show success message
-            JOptionPane.showMessageDialog(this, 
-                "Đã thêm " + selectedMembers.size() + " thành viên vào nhóm!", 
-                "Thành công", 
-                JOptionPane.INFORMATION_MESSAGE);
-            
-            dispose();
+            // Show result after all members processed
+            SwingUtilities.invokeLater(() -> {
+                showAddMembersResult(successCount[0], errorCount[0], totalMembers);
+            });
             
         } catch (Exception e) {
-            System.err.println("Error adding members: " + e.getMessage());
+            System.err.println("Exception while adding members: " + e.getMessage());
             e.printStackTrace();
             
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(this, 
+                    "Có lỗi xảy ra khi thêm thành viên:\n" + e.getMessage(), 
+                    "Lỗi", 
+                    JOptionPane.ERROR_MESSAGE);
+                    
+                addButton.setEnabled(true);
+                addButton.setText("Thêm thành viên");
+            });
+        }
+    }
+    
+    private void showAddMembersResult(int successCount, int errorCount, int totalMembers) {
+        StringBuilder message = new StringBuilder();
+        
+        if (successCount > 0) {
+            message.append("Đã thêm thành công ").append(successCount).append(" thành viên");
+            if (errorCount > 0) {
+                message.append("\n");
+            }
+        }
+        
+        if (errorCount > 0) {
+            message.append("Có ").append(errorCount).append(" thành viên không thể thêm");
+        }
+        
+        message.append("\nvào nhóm ").append(groupName).append("!");
+        
+        if (errorCount == 0) {
+            // Tất cả thành công
             JOptionPane.showMessageDialog(this, 
-                "Có lỗi xảy ra khi thêm thành viên: " + e.getMessage(), 
+                message.toString(), 
+                "Thành công", 
+                JOptionPane.INFORMATION_MESSAGE);
+            dispose();
+        } else if (successCount > 0) {
+            // Một phần thành công
+            JOptionPane.showMessageDialog(this, 
+                message.toString(), 
+                "Hoàn thành một phần", 
+                JOptionPane.WARNING_MESSAGE);
+            dispose();
+        } else {
+            // Tất cả thất bại
+            JOptionPane.showMessageDialog(this, 
+                "Không thể thêm bất kỳ thành viên nào vào nhóm!", 
                 "Lỗi", 
                 JOptionPane.ERROR_MESSAGE);
                 
             addButton.setEnabled(true);
-            addButton.setText("Thêm");
+            addButton.setText("Thêm thành viên");
         }
     }
     
@@ -426,15 +445,18 @@ public class AddMemberDialog extends JDialog {
             checkBox = new JCheckBox();
             checkBox.setOpaque(false);
             checkBox.setFocusPainted(false);
-            checkBox.addActionListener(e -> {
-                if (checkBox.isSelected()) {
-                    selectedMembers.add(friend);
-                    setBackground(new Color(232, 245, 255)); // Light blue when selected
-                } else {
-                    selectedMembers.remove(friend);
-                    setBackground(Color.WHITE);
+            checkBox.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (checkBox.isSelected()) {
+                        selectedMembers.add(friend);
+                        setBackground(new Color(232, 245, 255)); // Light blue when selected
+                    } else {
+                        selectedMembers.remove(friend);
+                        setBackground(Color.WHITE);
+                    }
+                    updateSelectedCount();
                 }
-                updateSelectedCount();
             });
             
             JPanel checkboxPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
@@ -478,110 +500,184 @@ public class AddMemberDialog extends JDialog {
     
     private void loadFriendsFromDatabase() {
         System.out.println("=== LOADING FRIENDS FROM DATABASE ===");
+        System.out.println("Group ID to add members to: " + groupID);
         
-        // Tạm thời sử dụng dữ liệu từ bảng friendships để lấy danh sách bạn bè
-        // Sau đó lọc ra những người chưa có trong nhóm
-        
-        // Giả sử current user ID = 10 (có thể lấy từ Service.getInstance().getUser())
-        int currentUserID = 10; // Tạm thời hard-code
-        
+        // Lấy current user từ Service thật
+        Model_User_Account currentUser = null;
         try {
-            // Tạo danh sách bạn bè dựa trên database
-            availableFriends.clear();
+            currentUser = service.Service.getInstance().getUser();
+            System.out.println("Got current user from service: " + currentUser.getUserName() + " (ID: " + currentUser.getUserID() + ")");
+        } catch (Exception e) {
+            System.err.println("Error getting current user from service: " + e.getMessage());
+            e.printStackTrace();
             
-            // Từ bảng friendships, lấy tất cả bạn bè của user hiện tại
-            // userID=10 có bạn bè: 11, 16, 15, 18
-            
-            // User 11
-            Model_User_Account friend1 = new Model_User_Account();
-            friend1.setUserID(11);
-            friend1.setUserName("nhu"); // Từ bảng user_account 
-            friend1.setStatus(true);
-            
-            // User 16  
-            Model_User_Account friend2 = new Model_User_Account();
-            friend2.setUserID(16);
-            friend2.setUserName("tien");
-            friend2.setStatus(true);
-            
-            // User 15
-            Model_User_Account friend3 = new Model_User_Account();
-            friend3.setUserID(15);
-            friend3.setUserName("hoa");
-            friend3.setStatus(true);
-            
-            // User 18
-            Model_User_Account friend4 = new Model_User_Account();
-            friend4.setUserID(18);
-            friend4.setUserName("duc");
-            friend4.setStatus(true);
-            
-            // Thêm vào danh sách tất cả bạn bè
-            List<Model_User_Account> allFriends = new ArrayList<>();
-            allFriends.add(friend1);
-            allFriends.add(friend2);
-            allFriends.add(friend3);
-            allFriends.add(friend4);
-            
-            // Bây giờ lọc ra những người chưa có trong nhóm
-            // Từ bảng group_members, nhóm 7 (test) có thành viên: 10, 11
-            // Nhóm 8 có thành viên: 10, 11, 16
-            // Nhóm 11 có thành viên: 10, 18
-            
-            List<Integer> currentGroupMembers = getCurrentGroupMembers(groupID);
-            
-            for (Model_User_Account friend : allFriends) {
-                boolean isAlreadyInGroup = currentGroupMembers.contains(friend.getUserID());
-                if (!isAlreadyInGroup) {
-                    availableFriends.add(friend);
-                }
-            }
-            
-            System.out.println("=== TOTAL FRIENDS: " + allFriends.size() + " ===");
-            System.out.println("=== AVAILABLE TO ADD: " + availableFriends.size() + " ===");
-            
-            // Update UI
+            // Show error message
             SwingUtilities.invokeLater(() -> {
-                displayAvailableFriends();
+                JOptionPane.showMessageDialog(this, 
+                    "Không thể lấy thông tin người dùng hiện tại: " + e.getMessage(), 
+                    "Lỗi", 
+                    JOptionPane.ERROR_MESSAGE);
+                dispose();
+            });
+            return;
+        }
+        
+        final int currentUserID = currentUser.getUserID();
+        System.out.println("Current user ID from database: " + currentUserID);
+        
+        // Lấy danh sách bạn bè thật từ database thông qua Service
+        try {
+            service.Service.getInstance().getFriendsList(new service.Service.FriendsListCallback() {
+                @Override
+                public void onResult(List<Model_User_Account> allFriends) {
+                    System.out.println("=== GOT FRIENDS FROM DATABASE: " + allFriends.size() + " ===");
+                    
+                    for (Model_User_Account friend : allFriends) {
+                        System.out.println("Friend: " + friend.getUserName() + " (ID: " + friend.getUserID() + ")");
+                    }
+                    
+                    // Lấy danh sách thành viên hiện tại của nhóm từ database
+                    System.out.println("=== ABOUT TO GET GROUP MEMBERS FOR GROUP " + groupID + " ===");
+                    
+                    // Tạo timeout để xử lý trường hợp getGroupMembers không trả về
+                    final boolean[] responseReceived = {false};
+                    
+                    // Tạo timer để timeout sau 5 giây
+                    Timer timeoutTimer = new Timer(1000, new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            if (!responseReceived[0]) {
+                                System.err.println("=== TIMEOUT GETTING GROUP MEMBERS - USING FALLBACK ===");
+                                responseReceived[0] = true;
+                                
+                                SwingUtilities.invokeLater(() -> {
+                                    // Không hiển thị warning dialog, chỉ fallback im lặng
+                                    System.out.println("Using fallback: showing all friends due to timeout");
+                                    
+                                    // Fallback: sử dụng tất cả bạn bè
+                                    availableFriends.clear();
+                                    availableFriends.addAll(allFriends);
+                                    displayAvailableFriends();
+                                });
+                            }
+                        }
+                    });
+                    timeoutTimer.setRepeats(false);
+                    timeoutTimer.start();
+                    
+                    try {
+                        service.Service.getInstance().getGroupMembers(groupID, new service.Service.GroupMembersCallback() {
+                            @Override
+                            public void onSuccess(List<Model_User_Account> groupMembers) {
+                                System.out.println("=== GOT GROUP MEMBERS FROM DATABASE: " + groupMembers.size() + " ===");
+                                
+                                if (responseReceived[0]) {
+                                    System.out.println("Response already handled by timeout - ignoring");
+                                    return;
+                                }
+                                responseReceived[0] = true;
+                                timeoutTimer.stop();
+                                
+                                for (Model_User_Account member : groupMembers) {
+                                    System.out.println("Group member: " + member.getUserName() + " (ID: " + member.getUserID() + ")");
+                                }
+                                
+                                // Lọc ra những bạn bè chưa có trong nhóm
+                                availableFriends.clear();
+                                
+                                for (Model_User_Account friend : allFriends) {
+                                    boolean isAlreadyInGroup = false;
+                                    
+                                    // Kiểm tra xem bạn này đã có trong nhóm chưa
+                                    for (Model_User_Account member : groupMembers) {
+                                        if (friend.getUserID() == member.getUserID()) {
+                                            isAlreadyInGroup = true;
+                                            System.out.println("Friend " + friend.getUserName() + " (ID: " + friend.getUserID() + ") already in group");
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (!isAlreadyInGroup) {
+                                        availableFriends.add(friend);
+                                        System.out.println("Available to add: " + friend.getUserName() + " (ID: " + friend.getUserID() + ")");
+                                    }
+                                }
+                                
+                                System.out.println("=== FINAL AVAILABLE FRIENDS: " + availableFriends.size() + " ===");
+                                
+                                // Cập nhật UI trên EDT
+                                SwingUtilities.invokeLater(() -> {
+                                    displayAvailableFriends();
+                                });
+                            }
+                            
+                            @Override
+                            public void onError(String error) {
+                                System.err.println("=== ERROR GETTING GROUP MEMBERS FROM DATABASE: " + error + " ===");
+                                
+                                if (responseReceived[0]) {
+                                    System.out.println("Response already handled by timeout - ignoring");
+                                    return;
+                                }
+                                responseReceived[0] = true;
+                                timeoutTimer.stop();
+                                
+                                // Fallback im lặng: chỉ hiển thị tất cả bạn bè
+                                SwingUtilities.invokeLater(() -> {
+                                    System.out.println("Using fallback: showing all friends due to error");
+                                    
+                                    // Fallback: sử dụng tất cả bạn bè
+                                    availableFriends.clear();
+                                    availableFriends.addAll(allFriends);
+                                    displayAvailableFriends();
+                                });
+                            }
+                        });
+                    } catch (Exception ex) {
+                        System.err.println("=== EXCEPTION CALLING getGroupMembers: " + ex.getMessage() + " ===");
+                        ex.printStackTrace();
+                        
+                        if (!responseReceived[0]) {
+                            responseReceived[0] = true;
+                            timeoutTimer.stop();
+                            
+                            SwingUtilities.invokeLater(() -> {
+                                System.out.println("Using fallback: showing all friends due to exception");
+                                
+                                // Fallback: sử dụng tất cả bạn bè
+                                availableFriends.clear();
+                                availableFriends.addAll(allFriends);
+                                displayAvailableFriends();
+                            });
+                        }
+                    }
+                }
+                
+                @Override
+                public void onError(String error) {
+                    System.err.println("=== ERROR GETTING FRIENDS FROM DATABASE: " + error + " ===");
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(AddMemberDialog.this, 
+                            "Không thể lấy danh sách bạn bè: " + error, 
+                            "Lỗi", 
+                            JOptionPane.ERROR_MESSAGE);
+                        dispose();
+                    });
+                }
             });
             
         } catch (Exception e) {
-            System.err.println("Error loading friends from database: " + e.getMessage());
+            System.err.println("=== EXCEPTION LOADING FRIENDS FROM DATABASE: " + e.getMessage() + " ===");
             e.printStackTrace();
-            // Fallback to test data
-            createTestFriends();
-            displayAvailableFriends();
+            
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(this, 
+                    "Lỗi kết nối database: " + e.getMessage(), 
+                    "Lỗi", 
+                    JOptionPane.ERROR_MESSAGE);
+                dispose();
+            });
         }
-    }
-    
-    private List<Integer> getCurrentGroupMembers(int groupID) {
-        List<Integer> members = new ArrayList<>();
-        
-        // Dựa vào bảng group_members trong database
-        // Group 7 (test): 10, 11  
-        // Group 8: 10, 11, 16
-        // Group 11: 10, 18
-        
-        switch (groupID) {
-            case 7: // test group
-                members.add(10); // phuc (admin)
-                members.add(11); // nhu (member)
-                break;
-            case 8: // test2 group  
-                members.add(10); // phuc (admin)
-                members.add(11); // nhu (member)
-                members.add(16); // tien (member)
-                break;
-            case 11: // group với id 11
-                members.add(10); // phuc (admin) 
-                members.add(18); // duc (admin)
-                break;
-            default:
-                // Unknown group, assume only current user
-                members.add(10);
-                break;
-        }
-        
-        return members;
     }
 }

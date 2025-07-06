@@ -1069,30 +1069,44 @@ public class Service {
             return;
         }
         
+        System.out.println("=== SERVICE: EMITTING get_group_members FOR GROUP " + groupID + " ===");
+        
         client.emit("get_group_members", groupID, new Ack() {
             @Override
             public void call(Object... os) {
+                System.out.println("=== SERVICE: RECEIVED get_group_members RESPONSE ===");
+                System.out.println("Response length: " + os.length);
+                System.out.println("Response data: " + java.util.Arrays.toString(os));
+                
                 if (os.length > 0) {
                     boolean success = (Boolean) os[0];
+                    System.out.println("Success: " + success);
+                    
                     if (success) {
                         List<Model_User_Account> members = new ArrayList<>();
                         
                         // Parse members data
                         for (int i = 1; i < os.length; i++) {
                             try {
+                                System.out.println("Parsing member data [" + i + "]: " + os[i]);
                                 Model_User_Account member = new Model_User_Account(os[i]);
                                 members.add(member);
+                                System.out.println("Added member: " + member.getUserName() + " (ID: " + member.getUserID() + ")");
                             } catch (Exception e) {
                                 System.err.println("Error parsing member data: " + e.getMessage());
+                                e.printStackTrace();
                             }
                         }
                         
+                        System.out.println("=== SERVICE: CALLING callback.onSuccess WITH " + members.size() + " MEMBERS ===");
                         callback.onSuccess(members);
                     } else {
                         String error = os.length > 1 ? (String) os[1] : "Failed to get group members";
+                        System.out.println("=== SERVICE: CALLING callback.onError: " + error + " ===");
                         callback.onError(error);
                     }
                 } else {
+                    System.out.println("=== SERVICE: CALLING callback.onError: No response from server ===");
                     callback.onError("No response from server");
                 }
             }
