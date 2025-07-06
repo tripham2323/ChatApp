@@ -298,12 +298,11 @@ public class AddMemberDialog extends JDialog {
             for (Model_User_Account member : selectedMembers) {
                 System.out.println("Adding member: " + member.getUserName() + " (ID: " + member.getUserID() + ") to group " + groupID);
                 
-                // TODO: Implement addMemberToGroup in Service
                 // Call Service để thêm member vào group
-                /*
                 service.Service.getInstance().addMemberToGroup(
                     groupID, 
                     member.getUserID(),
+                    "member", // role
                     new service.Service.AddMemberToGroupCallback() {
                         @Override
                         public void onSuccess() {
@@ -332,11 +331,6 @@ public class AddMemberDialog extends JDialog {
                         }
                     }
                 );
-                */
-                
-                // Tạm thời simulate thành công để test UI
-                System.out.println("Successfully added " + member.getUserName() + " to group " + groupID + " (simulated)");
-                successCount[0]++;
             }
             
             // Show result after all members processed

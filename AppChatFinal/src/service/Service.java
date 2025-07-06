@@ -272,7 +272,7 @@ public class Service {
             
             client.open();
         } catch (URISyntaxException e) {
-            error(e);
+            e.printStackTrace();
         }
     }
       // Method to process group message data from Map
@@ -1285,8 +1285,49 @@ public class Service {
         void onSuccess(int memberCount);
         void onError(String error);
     }
-
-    private void error(Exception e) {
-        System.err.println(e);
+    
+    // Method to add member to group
+    public void addMemberToGroup(int groupID, int userID, String role, AddMemberToGroupCallback callback) {
+        if (user == null) {
+            callback.onError("User not logged in");
+            return;
+        }
+        
+        System.out.println("=== CLIENT ADDING MEMBER TO GROUP ===");
+        System.out.println("GroupID: " + groupID);
+        System.out.println("UserID: " + userID);
+        System.out.println("Role: " + role);
+        
+        java.util.Map<String, Object> requestData = new java.util.HashMap<>();
+        requestData.put("groupID", groupID);
+        requestData.put("userID", userID);
+        requestData.put("role", role);
+        
+        client.emit("add_member_to_group", requestData, new Ack() {
+            @Override
+            public void call(Object... os) {
+                System.out.println("=== CLIENT RECEIVED ADD_MEMBER_TO_GROUP RESPONSE ===");
+                System.out.println("Response data: " + java.util.Arrays.toString(os));
+                
+                if (os.length > 0) {
+                    boolean success = (Boolean) os[0];
+                    if (success) {
+                        System.out.println("Successfully added member to group");
+                        callback.onSuccess();
+                    } else {
+                        String error = os.length > 1 ? (String) os[1] : "Failed to add member to group";
+                        System.err.println("Failed to add member: " + error);
+                        callback.onError(error);
+                    }
+                } else {
+                    callback.onError("No response from server");
+                }
+            }
+        });
+    }
+    
+    public interface AddMemberToGroupCallback {
+        void onSuccess();
+        void onError(String error);
     }
 }

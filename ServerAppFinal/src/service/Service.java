@@ -779,6 +779,39 @@ public class Service {
             }
         });
 
+        // Add member to group event handler
+        server.addEventListener("add_member_to_group", java.util.Map.class, new DataListener<java.util.Map>() {
+            @Override
+            public void onData(SocketIOClient socketClient, java.util.Map data, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== SERVER RECEIVED ADD_MEMBER_TO_GROUP REQUEST ===");
+                    System.out.println("Request data: " + data);
+                    
+                    int groupID = (Integer) data.get("groupID");
+                    int userID = (Integer) data.get("userID");
+                    String role = (String) data.get("role");
+                    
+                    System.out.println("Adding user " + userID + " to group " + groupID + " with role " + role);
+                    
+                    // Add member to group via ServiceUser
+                    boolean success = serviceUser.addMemberToGroup(groupID, userID, role);
+                    
+                    if (success) {
+                        System.out.println("Successfully added user " + userID + " to group " + groupID);
+                        ar.sendAckData(true, "Member added successfully");
+                        textArea.append("User " + userID + " added to group " + groupID + "\n");
+                    } else {
+                        System.err.println("Failed to add user " + userID + " to group " + groupID);
+                        ar.sendAckData(false, "Failed to add member to group");
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error adding member to group: " + e.getMessage());
+                    e.printStackTrace();
+                    ar.sendAckData(false, "Error adding member: " + e.getMessage());
+                }
+            }
+        });
+
         server.start();
         textArea.append("Server bắt đầu khởi tạo trên cổng : "+PORT_NUMBER+"\n");
     }

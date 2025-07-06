@@ -792,7 +792,57 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
         
         return members;
     }
-      // Method to save group message
+    
+    // Method to add member to group
+    public boolean addMemberToGroup(int groupID, int userID, String role) throws SQLException {
+        PreparedStatement p = null;
+        
+        try {
+            System.out.println("=== ADDING MEMBER TO GROUP ===");
+            System.out.println("GroupID: " + groupID);
+            System.out.println("UserID: " + userID);
+            System.out.println("Role: " + role);
+            
+            // Check if user is already in group
+            p = con.prepareStatement("SELECT id FROM group_members WHERE groupID = ? AND userID = ? AND status = 'active'");
+            p.setInt(1, groupID);
+            p.setInt(2, userID);
+            ResultSet r = p.executeQuery();
+            
+            if (r.next()) {
+                System.out.println("User " + userID + " is already in group " + groupID);
+                r.close();
+                p.close();
+                return false;
+            }
+            r.close();
+            p.close();
+            
+            // Add member to group
+            p = con.prepareStatement("INSERT INTO group_members (groupID, userID, role, joinedAt, status) VALUES (?, ?, ?, NOW(), 'active')");
+            p.setInt(1, groupID);
+            p.setInt(2, userID);
+            p.setString(3, role);
+            
+            int result = p.executeUpdate();
+            
+            if (result > 0) {
+                System.out.println("Successfully added user " + userID + " to group " + groupID);
+                return true;
+            } else {
+                System.err.println("Failed to add user " + userID + " to group " + groupID);
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("SQL Error adding member to group: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } finally {
+            if (p != null) p.close();
+        }
+    }
+    
+    // Method to save group message
     public boolean saveGroupMessage(model.Model_Send_Message message) throws SQLException {
         Connection con = null;
         PreparedStatement p = null;
