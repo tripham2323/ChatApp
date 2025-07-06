@@ -963,4 +963,51 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
             return new byte[0];
         }
     }
+
+    // Method to remove user from group (DELETE the row completely)
+    public boolean removeUserFromGroup(int groupID, int userID) throws SQLException {
+        PreparedStatement p = null;
+        
+        try {
+            System.out.println("=== REMOVING USER FROM GROUP ===");
+            System.out.println("GroupID: " + groupID);
+            System.out.println("UserID: " + userID);
+            
+            // Check if user is in group
+            p = con.prepareStatement("SELECT id FROM group_members WHERE groupID = ? AND userID = ? AND status = 'active'");
+            p.setInt(1, groupID);
+            p.setInt(2, userID);
+            ResultSet r = p.executeQuery();
+            
+            if (!r.next()) {
+                System.out.println("User " + userID + " is not in group " + groupID);
+                r.close();
+                p.close();
+                return false;
+            }
+            r.close();
+            p.close();
+            
+            // DELETE the row completely from group_members table
+            p = con.prepareStatement("DELETE FROM group_members WHERE groupID = ? AND userID = ?");
+            p.setInt(1, groupID);
+            p.setInt(2, userID);
+            
+            int result = p.executeUpdate();
+            
+            if (result > 0) {
+                System.out.println("Successfully DELETED user " + userID + " from group " + groupID + " (removed " + result + " row(s))");
+                return true;
+            } else {
+                System.err.println("Failed to delete user " + userID + " from group " + groupID);
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("SQL Error removing user from group: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } finally {
+            if (p != null) p.close();
+        }
+    }
 }

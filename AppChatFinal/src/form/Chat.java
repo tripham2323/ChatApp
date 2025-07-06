@@ -262,8 +262,8 @@ public class  Chat extends javax.swing.JPanel {    private Chat_Title chatTitle;
         this.user.setUserName(group.getGroupName());
         this.user.setStatus(true); // Groups are always "online"
         
-        System.out.println("=== CALLING setGroupName ===");
-        chatTitle.setGroupName(this.user);
+        System.out.println("=== CALLING setGroupChat ===");
+        chatTitle.setGroupChat(group.getGroupName(), group.getGroupID());
         chatBottom.setUser(this.user);
         
         System.out.println("=== CALLING getGroupMemberCount ===");

@@ -1330,4 +1330,95 @@ public class Service {
         void onSuccess();
         void onError(String error);
     }
+    
+    // Method to leave group
+    public void leaveGroup(int groupID, LeaveGroupCallback callback) {
+        if (user == null) {
+            callback.onError("User not logged in");
+            return;
+        }
+        
+        System.out.println("=== CLIENT LEAVING GROUP ===");
+        System.out.println("GroupID: " + groupID);
+        System.out.println("UserID: " + user.getUserID());
+        
+        java.util.Map<String, Object> requestData = new java.util.HashMap<>();
+        requestData.put("groupID", groupID);
+        requestData.put("userID", user.getUserID());
+        
+        System.out.println("=== CLIENT: ABOUT TO EMIT leave_group EVENT ===");
+        System.out.println("Request data: " + requestData);
+        
+        client.emit("leave_group", requestData, new Ack() {
+            @Override
+            public void call(Object... os) {
+                System.out.println("=== CLIENT RECEIVED LEAVE_GROUP RESPONSE ===");
+                System.out.println("Response data: " + java.util.Arrays.toString(os));
+                
+                if (os.length > 0) {
+                    boolean success = (Boolean) os[0];
+                    if (success) {
+                        System.out.println("Successfully left group");
+                        callback.onSuccess();
+                    } else {
+                        String error = os.length > 1 ? (String) os[1] : "Failed to leave group";
+                        System.err.println("Failed to leave group: " + error);
+                        callback.onError(error);
+                    }
+                } else {
+                    callback.onError("No response from server");
+                }
+            }
+        });
+        
+        System.out.println("=== CLIENT: leave_group EVENT EMITTED ===");
+    }
+    
+    // Simple method to remove member from group
+    public void removeMemberFromGroup(int groupID, int userID, RemoveMemberCallback callback) {
+        if (user == null) {
+            callback.onError("User not logged in");
+            return;
+        }
+        
+        System.out.println("=== CLIENT REMOVING MEMBER FROM GROUP ===");
+        System.out.println("GroupID: " + groupID);
+        System.out.println("UserID: " + userID);
+        
+        java.util.Map<String, Object> requestData = new java.util.HashMap<>();
+        requestData.put("groupID", groupID);
+        requestData.put("userID", userID);
+        
+        client.emit("remove_member_simple", requestData, new Ack() {
+            @Override
+            public void call(Object... os) {
+                System.out.println("=== CLIENT RECEIVED REMOVE_MEMBER_SIMPLE RESPONSE ===");
+                System.out.println("Response data: " + java.util.Arrays.toString(os));
+                
+                if (os.length > 0) {
+                    boolean success = (Boolean) os[0];
+                    if (success) {
+                        System.out.println("Successfully removed member from group");
+                        callback.onSuccess();
+                    } else {
+                        String error = os.length > 1 ? (String) os[1] : "Failed to remove member from group";
+                        System.err.println("Failed to remove member: " + error);
+                        callback.onError(error);
+                    }
+                } else {
+                    callback.onError("No response from server");
+                }
+            }
+        });
+    }
+    
+    public interface RemoveMemberCallback {
+        void onSuccess();
+        void onError(String error);
+    }
+    
+    public interface LeaveGroupCallback {
+        void onSuccess();
+        void onError(String error);
+    }
 }

@@ -812,6 +812,70 @@ public class Service {
             }
         });
 
+        // Leave group event handler
+        server.addEventListener("leave_group", java.util.Map.class, new DataListener<java.util.Map>() {
+            @Override
+            public void onData(SocketIOClient socketClient, java.util.Map data, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== SERVER RECEIVED LEAVE_GROUP REQUEST ===");
+                    System.out.println("Request data: " + data);
+                    
+                    int groupID = (Integer) data.get("groupID");
+                    int userID = (Integer) data.get("userID");
+                    
+                    System.out.println("User " + userID + " leaving group " + groupID);
+                    
+                    // Remove user from group via ServiceUser
+                    boolean success = serviceUser.removeUserFromGroup(groupID, userID);
+                    
+                    if (success) {
+                        System.out.println("Successfully removed user " + userID + " from group " + groupID);
+                        ar.sendAckData(true, "Successfully left group");
+                        textArea.append("User " + userID + " left group " + groupID + "\n");
+                    } else {
+                        System.err.println("Failed to remove user " + userID + " from group " + groupID);
+                        ar.sendAckData(false, "Failed to leave group");
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error leaving group: " + e.getMessage());
+                    e.printStackTrace();
+                    ar.sendAckData(false, "Error leaving group: " + e.getMessage());
+                }
+            }
+        });
+
+        // Simple remove member event handler  
+        server.addEventListener("remove_member_simple", java.util.Map.class, new DataListener<java.util.Map>() {
+            @Override
+            public void onData(SocketIOClient socketClient, java.util.Map data, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== SERVER RECEIVED REMOVE_MEMBER_SIMPLE REQUEST ===");
+                    System.out.println("Request data: " + data);
+                    
+                    int groupID = (Integer) data.get("groupID");
+                    int userID = (Integer) data.get("userID");
+                    
+                    System.out.println("Removing user " + userID + " from group " + groupID);
+                    
+                    // Remove user from group via ServiceUser
+                    boolean success = serviceUser.removeUserFromGroup(groupID, userID);
+                    
+                    if (success) {
+                        System.out.println("Successfully removed user " + userID + " from group " + groupID);
+                        ar.sendAckData(true, "Successfully removed from group");
+                        textArea.append("User " + userID + " removed from group " + groupID + "\n");
+                    } else {
+                        System.err.println("Failed to remove user " + userID + " from group " + groupID);
+                        ar.sendAckData(false, "Failed to remove from group");
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error removing member: " + e.getMessage());
+                    e.printStackTrace();
+                    ar.sendAckData(false, "Error removing member: " + e.getMessage());
+                }
+            }
+        });
+
         server.start();
         textArea.append("Server bắt đầu khởi tạo trên cổng : "+PORT_NUMBER+"\n");
     }
