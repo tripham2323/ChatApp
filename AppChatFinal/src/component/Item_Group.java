@@ -126,6 +126,37 @@ public class Item_Group extends JPanel {
             unreadLabel.setPreferredSize(new Dimension(20, 20));
             unreadLabel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
             rightPanel.add(unreadLabel, BorderLayout.SOUTH);
+        } else {
+            // Add "Add Member" button when no unread messages
+            JButton addButton = new JButton("+");
+            addButton.setFont(new Font("JetBrains Mono", Font.BOLD, 12));
+            addButton.setForeground(new Color(33, 150, 243));
+            addButton.setBackground(Color.WHITE);
+            addButton.setBorder(BorderFactory.createLineBorder(new Color(33, 150, 243), 1));
+            addButton.setPreferredSize(new Dimension(25, 20));
+            addButton.setFocusPainted(false);
+            addButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            
+            // Add click event for the add button
+            addButton.addActionListener(e -> {
+                e.getSource(); // Prevent event bubbling
+                openAddMemberDialog();
+            });
+            
+            // Also add mouse listener to prevent parent click
+            addButton.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    e.consume(); // Consume the event to prevent parent handling
+                }
+                
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    e.consume(); // Consume the event to prevent parent handling
+                }
+            });
+            
+            rightPanel.add(addButton, BorderLayout.SOUTH);
         }
         
         infoPanel.add(rightPanel, BorderLayout.EAST);
@@ -336,6 +367,26 @@ public class Item_Group extends JPanel {
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("Error opening group chat: " + e.getMessage());
+        }
+    }
+    
+    // Method to open Add Member dialog
+    private void openAddMemberDialog() {
+        System.out.println("=== OPENING ADD MEMBER DIALOG ===");
+        System.out.println("Group ID: " + group.getGroupID());
+        System.out.println("Group Name: " + group.getGroupName());
+        
+        try {
+            // Create and show the add member dialog
+            AddMemberDialog dialog = new AddMemberDialog(
+                (JFrame) SwingUtilities.getWindowAncestor(this), 
+                group.getGroupID(), 
+                group.getGroupName()
+            );
+            dialog.setVisible(true);
+        } catch (Exception e) {
+            System.err.println("Error opening add member dialog: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
