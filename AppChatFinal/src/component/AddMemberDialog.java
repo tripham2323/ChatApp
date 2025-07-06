@@ -427,9 +427,9 @@ public class AddMemberDialog extends JDialog {
             nameLabel.setFont(new Font("JetBrains Mono", Font.BOLD, 15));
             nameLabel.setForeground(new Color(50, 50, 50));
             
-            JLabel statusLabel = new JLabel("Đang hoạt động");
+            JLabel statusLabel = new JLabel(friend.getStatus() ? "Đang hoạt động" : "Không hoạt động");
             statusLabel.setFont(new Font("JetBrains Mono", Font.PLAIN, 12));
-            statusLabel.setForeground(new Color(76, 175, 80));
+            statusLabel.setForeground(friend.getStatus() ? new Color(76, 175, 80) : Color.GRAY);
             
             JPanel textPanel = new JPanel();
             textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
@@ -543,7 +543,7 @@ public class AddMemberDialog extends JDialog {
                     final boolean[] responseReceived = {false};
                     
                     // Tạo timer để timeout sau 5 giây
-                    Timer timeoutTimer = new Timer(1000, new ActionListener() {
+                    Timer timeoutTimer = new Timer(500, new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
                             if (!responseReceived[0]) {
