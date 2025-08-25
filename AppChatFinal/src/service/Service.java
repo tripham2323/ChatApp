@@ -270,6 +270,72 @@ public class Service {
                 }
             });
             
+            client.on("group_avatar_updated", new Emitter.Listener() {
+                @Override
+                public void call(Object... os) {
+                    System.out.println("=== RECEIVED GROUP AVATAR UPDATED NOTIFICATION ===");
+                    if (os.length > 0) {
+                        try {
+                            System.out.println("Notification data type: " + os[0].getClass().getName());
+                            System.out.println("Notification data: " + os[0]);
+                            
+                            // Handle both JSONObject and Map
+                            java.util.Map<String, Object> data = null;
+                            
+                            if (os[0] instanceof org.json.JSONObject) {
+                                org.json.JSONObject jsonObj = (org.json.JSONObject) os[0];
+                                data = new java.util.HashMap<>();
+                                
+                                // Convert JSONObject to Map
+                                java.util.Iterator<String> keys = jsonObj.keys();
+                                while (keys.hasNext()) {
+                                    String key = keys.next();
+                                    data.put(key, jsonObj.get(key));
+                                }
+                            } else if (os[0] instanceof java.util.Map) {
+                                @SuppressWarnings("unchecked")
+                                java.util.Map<String, Object> mapData = (java.util.Map<String, Object>) os[0];
+                                data = mapData;
+                            }
+                            
+                            if (data != null) {
+                                Object groupIDObj = data.get("groupID");
+                                Object avatarDataObj = data.get("avatarData");
+                                
+                                final int groupID = (groupIDObj instanceof Number) ? 
+                                    ((Number) groupIDObj).intValue() : 
+                                    Integer.parseInt(groupIDObj.toString());
+                                
+                                final byte[] newAvatar;
+                                if (avatarDataObj instanceof java.util.List) {
+                                    // Convert List<Integer> to byte[]
+                                    @SuppressWarnings("unchecked")
+                                    java.util.List<Integer> avatarList = (java.util.List<Integer>) avatarDataObj;
+                                    newAvatar = new byte[avatarList.size()];
+                                    for (int i = 0; i < avatarList.size(); i++) {
+                                        newAvatar[i] = avatarList.get(i).byteValue();
+                                    }
+                                } else {
+                                    newAvatar = null;
+                                }
+                                
+                                System.out.println("Group " + groupID + " avatar updated, size: " + 
+                                                 (newAvatar != null ? newAvatar.length : 0) + " bytes");
+                                
+                                // Update local group data and refresh UI
+                                SwingUtilities.invokeLater(() -> {
+                                    PublicEvent.getInstance().getEventMain().updateGroupAvatar(groupID, newAvatar);
+                                    PublicEvent.getInstance().getEventMain().refreshGroupsList();
+                                });
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Error processing group avatar update: " + e.getMessage());
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+            
             client.open();
         } catch (URISyntaxException e) {
             e.printStackTrace();
@@ -1031,18 +1097,50 @@ public class Service {
         client.emit("get_user_groups", user.getUserID(), new Ack() {
             @Override
             public void call(Object... os) {
+                System.out.println("=== RECEIVED GROUPS RESPONSE ===");
+                System.out.println("Response array length: " + os.length);
+                
                 if (os.length > 0) {
                     boolean success = (Boolean) os[0];
+                    System.out.println("Success: " + success);
+                    
                     if (success) {
                         List<Model_Group_Chat> groups = new ArrayList<>();
                         
-                        // Parse groups data
+                        // Parse groups data with detailed logging
                         for (int i = 1; i < os.length; i++) {
                             try {
+                                System.out.println("\n=== PROCESSING GROUP " + i + " ===");
+                                System.out.println("Raw data type: " + (os[i] != null ? os[i].getClass().getName() : "null"));
+                                
+                                if (os[i] instanceof java.util.Map) {
+                                    @SuppressWarnings("unchecked")
+                                    java.util.Map<String, Object> groupData = (java.util.Map<String, Object>) os[i];
+                                    
+                                    System.out.println("Group data keys: " + groupData.keySet());
+                                    System.out.println("GroupID: " + groupData.get("groupID"));
+                                    System.out.println("GroupName: " + groupData.get("groupName"));
+                                    
+                                    Object groupImageObj = groupData.get("groupImage");
+                                    if (groupImageObj != null) {
+                                        System.out.println("GroupImage found! Type: " + groupImageObj.getClass().getName());
+                                        if (groupImageObj instanceof java.util.List) {
+                                            java.util.List<?> imageList = (java.util.List<?>) groupImageObj;
+                                            System.out.println("GroupImage list size: " + imageList.size());
+                                            if (imageList.size() > 0) {
+                                                System.out.println("First 5 bytes: " + imageList.subList(0, Math.min(5, imageList.size())));
+                                            }
+                                        }
+                                    } else {
+                                        System.out.println("GroupImage is NULL in received data!");
+                                    }
+                                }
+                                
                                 Model_Group_Chat group = new Model_Group_Chat(os[i]);
                                 groups.add(group);
                             } catch (Exception e) {
                                 System.err.println("Error parsing group data: " + e.getMessage());
+                                e.printStackTrace();
                             }
                         }
                         
@@ -1372,6 +1470,62 @@ public class Service {
         });
         
         System.out.println("=== CLIENT: leave_group EVENT EMITTED ===");
+    }
+    
+    // Method to update group avatar
+    public void updateGroupAvatar(int groupID, byte[] avatarData, UpdateGroupAvatarCallback callback) {
+        if (user == null) {
+            callback.onError("User not logged in");
+            return;
+        }
+        
+        System.out.println("=== CLIENT UPDATING GROUP AVATAR ===");
+        System.out.println("GroupID: " + groupID);
+        System.out.println("Avatar size: " + avatarData.length + " bytes");
+        System.out.println("User ID: " + user.getUserID());
+        
+        // Create request data as Map to ensure proper serialization
+        java.util.Map<String, Object> requestData = new java.util.HashMap<>();
+        requestData.put("groupID", Integer.valueOf(groupID));
+        requestData.put("updatedBy", Integer.valueOf(user.getUserID()));
+        
+        // Convert byte array to ArrayList<Integer> for better JSON serialization
+        java.util.List<Integer> avatarList = new java.util.ArrayList<>();
+        for (byte b : avatarData) {
+            avatarList.add((int) (b & 0xFF)); // Convert to unsigned int
+        }
+        requestData.put("avatarData", avatarList);
+        
+        System.out.println("Sending request with data: " + requestData.keySet());
+        System.out.println("Avatar data converted to list size: " + avatarList.size());
+        
+        client.emit("update_group_avatar", requestData, new Ack() {
+            @Override
+            public void call(Object... os) {
+                System.out.println("=== CLIENT RECEIVED UPDATE_GROUP_AVATAR RESPONSE ===");
+                System.out.println("Response data: " + java.util.Arrays.toString(os));
+                
+                if (os.length > 0) {
+                    boolean success = (Boolean) os[0];
+                    if (success) {
+                        String message = os.length > 1 ? (String) os[1] : "Group avatar updated successfully";
+                        System.out.println("Successfully updated group avatar: " + message);
+                        callback.onSuccess(message);
+                    } else {
+                        String error = os.length > 1 ? (String) os[1] : "Failed to update group avatar";
+                        System.err.println("Failed to update group avatar: " + error);
+                        callback.onError(error);
+                    }
+                } else {
+                    callback.onError("No response from server");
+                }
+            }
+        });
+    }
+    
+    public interface UpdateGroupAvatarCallback {
+        void onSuccess(String message);
+        void onError(String error);
     }
     
     // Simple method to remove member from group

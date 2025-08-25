@@ -69,6 +69,18 @@ public class Main extends javax.swing.JFrame {
            public void updateUser(Model_User_Account user) {
                   home2.updateUser(user);
                }
+
+           @Override
+           public void updateGroupAvatar(int groupID, byte[] newAvatar) {
+               // Refresh the group avatar in the UI
+               home2.updateGroupAvatar(groupID, newAvatar);
+           }
+           
+           @Override
+           public void refreshGroupsList() {
+               // Reload groups from server
+               home2.refreshGroupsList();
+           }
            
        });
        

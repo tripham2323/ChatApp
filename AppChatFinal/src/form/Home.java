@@ -37,6 +37,16 @@ public class Home extends javax.swing.JLayeredPane {    private Chat chat;
         chat.updateUser(user);
     
     }
+    
+    public void updateGroupAvatar(int groupID, byte[] newAvatar) {
+        // Update the group avatar in the menu left
+        menuLeft.updateGroupAvatar(groupID, newAvatar);
+    }
+    
+    public void refreshGroupsList() {
+        // Reload groups from server
+        menuLeft.refreshGroupsList();
+    }
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {

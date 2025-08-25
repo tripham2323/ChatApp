@@ -61,6 +61,8 @@ public class ServiceUser {
                                             "where gm.groupID = ? " +
                                             "order by gm.sentAt asc " +
                                             "limit 50"; // Get last 50 messages
+    // Update group avatar query
+    private final String UPDATE_GROUP_AVATAR = "UPDATE chat_groups SET groupImage = ?, updatedAt = NOW() WHERE groupID = ?";
 
     //khởi tạo connect sql
     private final Connection con;
@@ -727,15 +729,19 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
                 group.setGroupName(r.getString("groupName"));
                 group.setGroupDescription(r.getString("groupDescription"));
                 
-                // Handle group image
-                InputStream input = r.getBinaryStream("groupImage");
-                if (input != null) {
-                    byte[] groupImage = new byte[input.available()];
-                    groupImage = input.readAllBytes();
-                    group.setGroupImage(groupImage);
-                    input.close();
-                } else {
-                    group.setGroupImage(new byte[0]);
+                // Handle group image with proper BLOB handling
+                try {
+                    byte[] groupImageData = r.getBytes("groupImage");
+                    if (groupImageData != null && groupImageData.length > 0) {
+                        group.setGroupImage(groupImageData);
+                        System.out.println("✅ Loaded group " + group.getGroupID() + " (" + group.getGroupName() + ") with avatar size: " + groupImageData.length + " bytes");
+                    } else {
+                        group.setGroupImage(null);
+                        System.out.println("Group " + group.getGroupID() + " (" + group.getGroupName() + ") has no custom avatar");
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error loading group image for group " + group.getGroupID() + ": " + e.getMessage());
+                    group.setGroupImage(null);
                 }
                 
                 group.setCreatedBy(r.getInt("createdBy"));
@@ -743,6 +749,9 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
                 group.setLastMessage(r.getString("lastMessage"));
                 group.setLastMessageTime(r.getTimestamp("lastMessageTime"));
                 group.setStatus("active");
+                
+                System.out.println("Final group data - ID: " + group.getGroupID() + ", Name: " + group.getGroupName() + 
+                                 ", Avatar size: " + (group.getGroupImage() != null ? group.getGroupImage().length : 0));
                 
                 groups.add(group);
             }
@@ -1007,6 +1016,213 @@ public boolean rejectFriendRequest(int requestID) throws SQLException {
             e.printStackTrace();
             return false;
         } finally {
+            if (p != null) p.close();
+        }
+    }
+    
+    // Method to update group avatar
+    public boolean updateGroupAvatar(int groupID, byte[] avatarData, int updatedBy) throws SQLException {
+        PreparedStatement p = null;
+        
+        try {
+            System.out.println("=== UPDATING GROUP AVATAR ===");
+            System.out.println("GroupID: " + groupID);
+            System.out.println("UpdatedBy: " + updatedBy);
+            System.out.println("Avatar size: " + (avatarData != null ? avatarData.length : 0) + " bytes");
+            
+            // Test database connection first
+            System.out.println("Testing database connection...");
+            p = con.prepareStatement("SELECT 1");
+            ResultSet testResult = p.executeQuery();
+            if (testResult.next()) {
+                System.out.println("✅ Database connection OK");
+            }
+            testResult.close();
+            p.close();
+            
+            // Ensure auto-commit is enabled
+            con.setAutoCommit(true);
+            System.out.println("Auto-commit enabled: " + con.getAutoCommit());
+            
+            // Check if group exists and get current data
+            System.out.println("Checking if group exists...");
+            p = con.prepareStatement("SELECT groupID, groupName, LENGTH(groupImage) as currentImageSize FROM chat_groups WHERE groupID = ? AND status = 'active'");
+            p.setInt(1, groupID);
+            ResultSet r = p.executeQuery();
+            
+            if (!r.next()) {
+                System.err.println("❌ Group " + groupID + " does not exist or is not active");
+                r.close();
+                p.close();
+                return false;
+            }
+            
+            String groupName = r.getString("groupName");
+            int currentImageSize = r.getInt("currentImageSize");
+            System.out.println("✅ Group found: " + groupName + ", current image size: " + currentImageSize + " bytes");
+            r.close();
+            p.close();
+            
+            // Check if user is a member of the group
+            System.out.println("Checking user membership...");
+            p = con.prepareStatement("SELECT id, role FROM group_members WHERE groupID = ? AND userID = ? AND status = 'active'");
+            p.setInt(1, groupID);
+            p.setInt(2, updatedBy);
+            r = p.executeQuery();
+            
+            if (!r.next()) {
+                System.err.println("❌ User " + updatedBy + " is not a member of group " + groupID);
+                r.close();
+                p.close();
+                return false;
+            }
+            
+            String userRole = r.getString("role");
+            System.out.println("✅ User " + updatedBy + " is a " + userRole + " of group " + groupID);
+            r.close();
+            p.close();
+            
+            // Now update group avatar
+            System.out.println("Executing UPDATE query...");
+            p = con.prepareStatement(UPDATE_GROUP_AVATAR);
+            if (avatarData != null && avatarData.length > 0) {
+                p.setBytes(1, avatarData);
+                System.out.println("Setting avatar data: " + avatarData.length + " bytes");
+            } else {
+                p.setNull(1, java.sql.Types.LONGVARBINARY);
+                System.out.println("Setting avatar data to NULL");
+            }
+            p.setInt(2, groupID);
+            
+            System.out.println("SQL: " + UPDATE_GROUP_AVATAR);
+            System.out.println("Parameters: avatarSize=" + (avatarData != null ? avatarData.length : 0) + ", groupID=" + groupID);
+            
+            int result = p.executeUpdate();
+            
+            System.out.println("📊 SQL execution result: " + result + " rows affected");
+            
+            if (result > 0) {
+                System.out.println("✅ Successfully updated avatar for group " + groupID);
+                
+                // Verify the update by reading back immediately
+                p.close();
+                p = con.prepareStatement("SELECT LENGTH(groupImage) as imageSize, groupName FROM chat_groups WHERE groupID = ?");
+                p.setInt(1, groupID);
+                ResultSet verifyResult = p.executeQuery();
+                if (verifyResult.next()) {
+                    int storedSize = verifyResult.getInt("imageSize");
+                    String verifyGroupName = verifyResult.getString("groupName");
+                    System.out.println("🔍 VERIFICATION: Group '" + verifyGroupName + "' now has image size: " + storedSize + " bytes");
+                    
+                    if (avatarData != null && storedSize == avatarData.length) {
+                        System.out.println("✅ VERIFICATION PASSED: Stored size matches uploaded size");
+                    } else if (avatarData == null && storedSize == 0) {
+                        System.out.println("✅ VERIFICATION PASSED: Avatar cleared successfully");
+                    } else {
+                        System.err.println("⚠️ VERIFICATION FAILED: Expected " + (avatarData != null ? avatarData.length : 0) + " bytes, got " + storedSize + " bytes");
+                    }
+                } else {
+                    System.err.println("❌ VERIFICATION FAILED: Could not read back group data");
+                }
+                verifyResult.close();
+                
+                return true;
+            } else {
+                System.err.println("❌ Failed to update avatar for group " + groupID + " - no rows affected");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("SQL Error updating group avatar: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } finally {
+            if (p != null) p.close();
+        }
+    }
+    
+    // Simplified method for group avatar update (like user avatar)
+    public boolean updateGroupAvatarSimple(int groupID, byte[] avatarData) throws SQLException {
+        PreparedStatement p = null;
+        
+        try {
+            System.out.println("=== UPDATING GROUP AVATAR (SIMPLE) ===");
+            System.out.println("GroupID: " + groupID);
+            System.out.println("Avatar size: " + (avatarData != null ? avatarData.length : 0) + " bytes");
+            
+            // Simple update without permission check (like user avatar)
+            p = con.prepareStatement("UPDATE chat_groups SET groupImage = ?, updatedAt = NOW() WHERE groupID = ?");
+            
+            if (avatarData != null && avatarData.length > 0) {
+                p.setBytes(1, avatarData);
+                System.out.println("✅ Setting avatar data (" + avatarData.length + " bytes)");
+            } else {
+                p.setNull(1, java.sql.Types.LONGVARBINARY);
+                System.out.println("✅ Setting avatar to NULL");
+            }
+            
+            p.setInt(2, groupID);
+            
+            int rowsAffected = p.executeUpdate();
+            System.out.println("Rows affected: " + rowsAffected);
+            
+            if (rowsAffected > 0) {
+                System.out.println("✅ Group avatar updated successfully!");
+                return true;
+            } else {
+                System.err.println("❌ No rows affected - group may not exist");
+                return false;
+            }
+            
+        } catch (SQLException e) {
+            System.err.println("SQL Error in updateGroupAvatarSimple: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } finally {
+            if (p != null) p.close();
+        }
+    }
+    
+    // Method to get single group by ID
+    public Model_Group_Chat getGroupById(int groupID) throws SQLException {
+        PreparedStatement p = null;
+        ResultSet r = null;
+        
+        try {
+            System.out.println("=== GET GROUP BY ID ===");
+            System.out.println("GroupID: " + groupID);
+            
+            p = con.prepareStatement("SELECT groupID, groupName, groupDescription, groupImage, createdBy, createdAt, updatedAt, status FROM chat_groups WHERE groupID = ?");
+            p.setInt(1, groupID);
+            
+            r = p.executeQuery();
+            
+            if (r.next()) {
+                Model_Group_Chat group = new Model_Group_Chat();
+                group.setGroupID(r.getInt("groupID"));
+                group.setGroupName(r.getString("groupName"));
+                group.setGroupDescription(r.getString("groupDescription"));
+                group.setGroupImage(r.getBytes("groupImage"));
+                group.setCreatedBy(r.getInt("createdBy"));
+                group.setCreatedAt(r.getTimestamp("createdAt"));
+                group.setUpdatedAt(r.getTimestamp("updatedAt"));
+                group.setStatus(r.getString("status"));
+                
+                byte[] avatar = group.getGroupImage();
+                System.out.println("Group found: " + group.getGroupName());
+                System.out.println("Avatar size: " + (avatar != null ? avatar.length : 0) + " bytes");
+                
+                return group;
+            } else {
+                System.out.println("Group " + groupID + " not found");
+                return null;
+            }
+            
+        } catch (SQLException e) {
+            System.err.println("SQL Error getting group by ID: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        } finally {
+            if (r != null) r.close();
             if (p != null) p.close();
         }
     }

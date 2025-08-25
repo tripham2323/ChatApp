@@ -448,6 +448,64 @@ public class Service {
              
                }
         });
+        
+        // Group avatar upload handler - using Model_Package_Sender like user avatar
+        server.addEventListener("send_group_avatar", Model_Package_Sender.class, new DataListener<Model_Package_Sender>() {
+            @Override
+            public void onData(SocketIOClient socketClient, Model_Package_Sender t, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== RECEIVED GROUP AVATAR CHUNK ===");
+                    System.out.println("From Group ID: " + t.getFromUserID());
+                    System.out.println("Is finished: " + t.isFinish());
+                    System.out.println("Data size: " + (t.getData() != null ? t.getData().length : 0));
+                    
+                    if (!t.isFinish()) {
+                        // Add chunk to buffer
+                        ByteOutputStream.write(t.getData());
+                        ar.sendAckData(true);
+                        System.out.println("✅ Group avatar chunk received");
+                    } else {
+                        // Final chunk - save to database
+                        ByteOutputStream.close();
+                        byte[] completeData = ByteOutputStream.toByteArray();
+                        ByteOutputStream.reset();
+                        
+                        System.out.println("=== SAVING GROUP AVATAR TO DATABASE ===");
+                        System.out.println("Group ID: " + t.getFromUserID());
+                        System.out.println("Complete data size: " + completeData.length);
+                        
+                        // Update group avatar in database
+                        boolean success = serviceUser.updateGroupAvatarSimple(t.getFromUserID(), completeData);
+                        
+                        if (success) {
+                            System.out.println("✅ Group avatar saved to database successfully");
+                            ar.sendAckData(true);
+                            
+                            // Broadcast to all clients
+                            java.util.Map<String, Object> broadcastData = new java.util.HashMap<>();
+                            broadcastData.put("groupID", t.getFromUserID());
+                            // Convert byte array to List<Integer> for broadcast
+                            java.util.List<Integer> avatarList = new java.util.ArrayList<>();
+                            for (byte b : completeData) {
+                                avatarList.add((int) (b & 0xFF));
+                            }
+                            broadcastData.put("avatarData", avatarList);
+                            server.getBroadcastOperations().sendEvent("group_avatar_updated", broadcastData);
+                            
+                        } else {
+                            System.err.println("❌ Failed to save group avatar to database");
+                            ar.sendAckData(false);
+                        }
+                    }
+                    
+                } catch (Exception e) {
+                    System.err.println("Error processing group avatar: " + e.getMessage());
+                    e.printStackTrace();
+                    ar.sendAckData(false);
+                }
+            }
+        });
+        
           // Friend search event handler - chỉ hiển thị người chưa kết bạn
         server.addEventListener("search_users", Object.class, new DataListener<Object>() {
             @Override
@@ -695,14 +753,39 @@ public class Service {
                         groupMap.put("groupID", group.getGroupID());
                         groupMap.put("groupName", group.getGroupName());
                         groupMap.put("groupDescription", group.getGroupDescription());
-                        groupMap.put("groupImage", group.getGroupImage());
+                        
+                        // Convert byte[] to List<Integer> for Socket.IO compatibility
+                        byte[] groupImageBytes = group.getGroupImage();
+                        if (groupImageBytes != null && groupImageBytes.length > 0) {
+                            System.out.println("Converting group image to List<Integer>, size: " + groupImageBytes.length);
+                            java.util.List<Integer> imageDataList = new java.util.ArrayList<>();
+                            for (byte b : groupImageBytes) {
+                                imageDataList.add((int) (b & 0xFF));
+                            }
+                            groupMap.put("groupImage", imageDataList);
+                            System.out.println("Group " + group.getGroupID() + " image converted to list size: " + imageDataList.size());
+                            System.out.println("First 10 bytes: " + imageDataList.subList(0, Math.min(10, imageDataList.size())));
+                        } else {
+                            groupMap.put("groupImage", null);
+                            System.out.println("Group " + group.getGroupID() + " has no image (null or empty)");
+                            if (groupImageBytes != null) {
+                                System.out.println("Group " + group.getGroupID() + " groupImageBytes is not null but length is: " + groupImageBytes.length);
+                            }
+                        }
+                        
                         groupMap.put("createdBy", group.getCreatedBy());
                         groupMap.put("createdAt", group.getCreatedAt() != null ? group.getCreatedAt().toString() : null);
                         groupMap.put("lastMessage", group.getLastMessage());
                         groupMap.put("lastMessageTime", group.getLastMessageTime() != null ? group.getLastMessageTime().toString() : null);
                         groupMap.put("status", group.getStatus());
                         
-                        System.out.println("GroupMap created: " + groupMap);
+                        // Debug log without large groupImage data
+                        java.util.Map<String, Object> debugMap = new java.util.HashMap<>(groupMap);
+                        if (debugMap.containsKey("groupImage") && debugMap.get("groupImage") != null) {
+                            java.util.List<?> imageList = (java.util.List<?>) debugMap.get("groupImage");
+                            debugMap.put("groupImage", "[" + imageList.size() + " bytes]");
+                        }
+                        System.out.println("GroupMap created: " + debugMap);
                         groupsData.add(groupMap);
                     }
                     
@@ -724,6 +807,50 @@ public class Service {
                 } catch (Exception e) {
                     ar.sendAckData(false, "Error retrieving groups: " + e.getMessage());
                     e.printStackTrace();
+                }
+            }
+        });
+        
+        // Handler to get single group avatar
+        server.addEventListener("get_group_avatar", Integer.class, new DataListener<Integer>() {
+            @Override
+            public void onData(SocketIOClient socketClient, Integer groupID, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== SERVER GET_GROUP_AVATAR START ===");
+                    System.out.println("Group ID: " + groupID);
+                    
+                    // Get group avatar from database
+                    Model_Group_Chat group = serviceUser.getGroupById(groupID);
+                    
+                    if (group != null) {
+                        byte[] avatarBytes = group.getGroupImage();
+                        
+                        if (avatarBytes != null && avatarBytes.length > 0) {
+                            System.out.println("Found avatar for group " + groupID + ", size: " + avatarBytes.length + " bytes");
+                            
+                            // Convert to List<Integer>
+                            java.util.List<Integer> avatarList = new java.util.ArrayList<>();
+                            for (byte b : avatarBytes) {
+                                avatarList.add((int) (b & 0xFF));
+                            }
+                            
+                            System.out.println("Converted to list size: " + avatarList.size());
+                            ar.sendAckData(true, avatarList);
+                        } else {
+                            System.out.println("No avatar found for group " + groupID);
+                            ar.sendAckData(false, "No avatar found");
+                        }
+                    } else {
+                        System.out.println("Group " + groupID + " not found");
+                        ar.sendAckData(false, "Group not found");
+                    }
+                    
+                    System.out.println("=== SERVER GET_GROUP_AVATAR END ===");
+                    
+                } catch (Exception e) {
+                    System.err.println("Error getting group avatar: " + e.getMessage());
+                    e.printStackTrace();
+                    ar.sendAckData(false, "Error: " + e.getMessage());
                 }
             }
         });
@@ -876,8 +1003,82 @@ public class Service {
             }
         });
 
+        // Update group avatar event handler
+        System.out.println("=== REGISTERING UPDATE_GROUP_AVATAR EVENT LISTENER ===");
+        server.addEventListener("update_group_avatar", java.util.Map.class, new DataListener<java.util.Map>() {
+            @Override
+            public void onData(SocketIOClient socketClient, java.util.Map data, AckRequest ar) throws Exception {
+                try {
+                    System.out.println("=== SERVER RECEIVED UPDATE_GROUP_AVATAR REQUEST ===");
+                    System.out.println("Request data keys: " + data.keySet());
+                    System.out.println("Request data values types: ");
+                    for (Object key : data.keySet()) {
+                        Object value = data.get(key);
+                        System.out.println("  " + key + " -> " + (value != null ? value.getClass().getSimpleName() : "null"));
+                    }
+                    
+                    // Extract data with better error handling
+                    Object groupIDObj = data.get("groupID");
+                    Object updatedByObj = data.get("updatedBy");
+                    Object avatarObj = data.get("avatarData");
+                    
+                    if (groupIDObj == null || updatedByObj == null || avatarObj == null) {
+                        System.err.println("Missing required parameters");
+                        ar.sendAckData(false, "Missing required parameters");
+                        return;
+                    }
+                    
+                    int groupID = ((Number) groupIDObj).intValue();
+                    int updatedBy = ((Number) updatedByObj).intValue();
+                    
+                    // Handle avatarData - convert from ArrayList to byte[]
+                    byte[] avatarData = null;
+                    if (avatarObj instanceof java.util.List) {
+                        @SuppressWarnings("unchecked")
+                        java.util.List<Number> avatarList = (java.util.List<Number>) avatarObj;
+                        avatarData = new byte[avatarList.size()];
+                        for (int i = 0; i < avatarList.size(); i++) {
+                            avatarData[i] = avatarList.get(i).byteValue();
+                        }
+                        System.out.println("Converted avatarData from ArrayList (" + avatarList.size() + " items) to byte array");
+                    } else if (avatarObj instanceof byte[]) {
+                        avatarData = (byte[]) avatarObj;
+                        System.out.println("Received avatarData as byte array");
+                    } else {
+                        System.err.println("Unknown avatarData type: " + avatarObj.getClass());
+                        ar.sendAckData(false, "Invalid avatar data format");
+                        return;
+                    }
+                    
+                    System.out.println("Processing: groupID=" + groupID + ", updatedBy=" + updatedBy + ", avatarSize=" + avatarData.length);
+                    
+                    // Update group avatar in database via ServiceUser
+                    boolean success = serviceUser.updateGroupAvatar(groupID, avatarData, updatedBy);
+                    
+                    if (success) {
+                        System.out.println("✅ Successfully updated avatar for group " + groupID);
+                        ar.sendAckData(true, "Group avatar updated successfully");
+                        textArea.append("✅ Group " + groupID + " avatar updated by user " + updatedBy + " (" + avatarData.length + " bytes)\n");
+                        
+                        // Notify all group members about avatar update
+                        notifyGroupAvatarUpdated(groupID, avatarData);
+                    } else {
+                        System.err.println("❌ Failed to update avatar for group " + groupID);
+                        ar.sendAckData(false, "Failed to update group avatar in database");
+                    }
+                } catch (Exception e) {
+                    System.err.println("❌ Error updating group avatar: " + e.getMessage());
+                    e.printStackTrace();
+                    ar.sendAckData(false, "Server error: " + e.getMessage());
+                }
+            }
+        });
+
         server.start();
         textArea.append("Server bắt đầu khởi tạo trên cổng : "+PORT_NUMBER+"\n");
+        System.out.println("=== ALL EVENT LISTENERS REGISTERED ===");
+        System.out.println("- update_group_avatar listener: REGISTERED");
+        System.out.println("=== SERVER READY ===");
     }
     
     private void sendToClient(Model_Send_Message data, AckRequest ar){
@@ -1046,6 +1247,38 @@ public class Service {
             }
         } catch (Exception e) {
             textArea.append("Error notifying group creation: " + e.getMessage() + "\n");
+        }
+    }
+    
+    // Method to notify group members about avatar update
+    private void notifyGroupAvatarUpdated(int groupID, byte[] newAvatarData) {
+        try {
+            System.out.println("=== NOTIFYING GROUP MEMBERS ABOUT AVATAR UPDATE ===");
+            
+            // Get all group members
+            List<Model_User_Account> members = serviceUser.getGroupMembers(groupID);
+            System.out.println("Found " + members.size() + " members in group " + groupID);
+            
+            // Create notification data
+            java.util.Map<String, Object> notificationData = new java.util.HashMap<>();
+            notificationData.put("groupID", groupID);
+            notificationData.put("newAvatar", newAvatarData);
+            notificationData.put("eventType", "group_avatar_updated");
+            
+            // Send notification to all online group members
+            for (Model_User_Account member : members) {
+                for (Model_Client c : listClient) {
+                    if (c.getUser().getUserID() == member.getUserID()) {
+                        c.getClient().sendEvent("group_avatar_updated", notificationData);
+                        System.out.println("Notified user " + member.getUserName() + " about group avatar update");
+                        textArea.append("Notified " + member.getUserName() + " about group " + groupID + " avatar update\n");
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error notifying group avatar update: " + e.getMessage());
+            textArea.append("Error notifying group avatar update: " + e.getMessage() + "\n");
         }
     }
 }

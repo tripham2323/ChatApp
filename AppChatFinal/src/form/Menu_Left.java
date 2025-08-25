@@ -642,6 +642,31 @@ public class Menu_Left extends javax.swing.JPanel implements component.Item_Grou
             menuList.repaint();
         }
     }
+    
+    public void updateGroupAvatar(int groupID, byte[] newAvatar) {
+        // Find the group item with the specified groupID and update its avatar
+        for (component.Item_Group groupItem : groupItems) {
+            if (groupItem.getGroup().getGroupID() == groupID) {
+                // Update the group's avatar data
+                groupItem.getGroup().setGroupImage(newAvatar);
+                // Refresh the avatar display
+                groupItem.refreshAvatar();
+                break;
+            }
+        }
+        
+        // Repaint the menu to show the updated avatar
+        if (menuList != null) {
+            menuList.repaint();
+        }
+    }
+    
+    public void refreshGroupsList() {
+        // Reload groups from server to get updated avatar data
+        if (menuGroup.isSelected()) {
+            showGroup();
+        }
+    }
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLayeredPane menu;
     private component.MenuButton menuBox;

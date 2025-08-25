@@ -66,17 +66,56 @@ public class Model_Group_Chat {
                 
                 this.groupDescription = (String) data.get("groupDescription");
                 
-                // Handle group image - it might be null or empty array
+                // Handle group image - ENHANCED DEBUG
                 Object groupImageObj = data.get("groupImage");
+                System.out.println("=== PARSING GROUP IMAGE ===");
+                System.out.println("GroupImage object: " + groupImageObj);
+                System.out.println("GroupImage type: " + (groupImageObj != null ? groupImageObj.getClass().getName() : "null"));
+                
                 if (groupImageObj != null) {
                     if (groupImageObj instanceof byte[]) {
                         this.groupImage = (byte[]) groupImageObj;
+                        System.out.println("✅ Set groupImage directly from byte[], size: " + this.groupImage.length);
+                    } else if (groupImageObj instanceof java.util.List) {
+                        // Convert List<Integer> back to byte[]
+                        @SuppressWarnings("unchecked")
+                        java.util.List<?> rawList = (java.util.List<?>) groupImageObj;
+                        System.out.println("Converting from List, raw size: " + rawList.size());
+                        
+                        if (rawList.size() > 0) {
+                            this.groupImage = new byte[rawList.size()];
+                            for (int i = 0; i < rawList.size(); i++) {
+                                Object item = rawList.get(i);
+                                if (item instanceof Number) {
+                                    this.groupImage[i] = ((Number) item).byteValue();
+                                } else if (item instanceof String) {
+                                    this.groupImage[i] = (byte) Integer.parseInt((String) item);
+                                } else {
+                                    this.groupImage[i] = 0;
+                                    System.out.println("⚠️ Unknown item type at index " + i + ": " + (item != null ? item.getClass().getName() : "null"));
+                                }
+                            }
+                            System.out.println("✅ Successfully converted groupImage from List to byte[], size: " + this.groupImage.length);
+                            // Verify first few bytes
+                            if (this.groupImage.length >= 4) {
+                                System.out.println("First 4 bytes: " + 
+                                    (this.groupImage[0] & 0xFF) + ", " + 
+                                    (this.groupImage[1] & 0xFF) + ", " + 
+                                    (this.groupImage[2] & 0xFF) + ", " + 
+                                    (this.groupImage[3] & 0xFF));
+                            }
+                        } else {
+                            this.groupImage = null;
+                            System.out.println("❌ List is empty, setting groupImage to null");
+                        }
                     } else {
-                        System.out.println("groupImage is not byte[], type: " + groupImageObj.getClass().getName());
-                        this.groupImage = new byte[0];
+                        System.out.println("❌ groupImage is unknown type: " + groupImageObj.getClass().getName());
+                        System.out.println("String representation: " + groupImageObj.toString());
+                        this.groupImage = null;
                     }
                 } else {
-                    this.groupImage = new byte[0];
+                    this.groupImage = null;
+                    System.out.println("❌ groupImage key is null in server data");
                 }
                 
                 Object createdByObj = data.get("createdBy");
@@ -172,8 +211,59 @@ public class Model_Group_Chat {
                     this.groupDescription = (String) getStringMethod.invoke(jsonData, "groupDescription");
                 }
                 
-                // Handle group image - assume it's empty for now
-                this.groupImage = new byte[0];
+                // Handle group image - PARSE FROM JSON
+                if ((Boolean) hasMethod.invoke(jsonData, "groupImage") && !(Boolean) isNullMethod.invoke(jsonData, "groupImage")) {
+                    try {
+                        // Get the groupImage as JSONArray
+                        java.lang.reflect.Method getMethod = jsonClass.getMethod("get", String.class);
+                        Object groupImageObj = getMethod.invoke(jsonData, "groupImage");
+                        
+                        System.out.println("=== PARSING GROUP IMAGE FROM JSON ===");
+                        System.out.println("GroupImage object: " + groupImageObj);
+                        System.out.println("GroupImage type: " + (groupImageObj != null ? groupImageObj.getClass().getName() : "null"));
+                        
+                        if (groupImageObj != null && groupImageObj.getClass().getName().contains("JSONArray")) {
+                            // Parse JSONArray to byte[]
+                            Class<?> jsonArrayClass = groupImageObj.getClass();
+                            java.lang.reflect.Method lengthMethod = jsonArrayClass.getMethod("length");
+                            java.lang.reflect.Method getIntAtMethod = jsonArrayClass.getMethod("getInt", int.class);
+                            
+                            int arrayLength = (Integer) lengthMethod.invoke(groupImageObj);
+                            System.out.println("JSON Array length: " + arrayLength);
+                            
+                            if (arrayLength > 0) {
+                                this.groupImage = new byte[arrayLength];
+                                for (int i = 0; i < arrayLength; i++) {
+                                    int value = (Integer) getIntAtMethod.invoke(groupImageObj, i);
+                                    this.groupImage[i] = (byte) value;
+                                }
+                                System.out.println("✅ Successfully parsed groupImage from JSON, size: " + this.groupImage.length);
+                                
+                                // Verify first few bytes
+                                if (this.groupImage.length >= 4) {
+                                    System.out.println("First 4 bytes: " + 
+                                        (this.groupImage[0] & 0xFF) + ", " + 
+                                        (this.groupImage[1] & 0xFF) + ", " + 
+                                        (this.groupImage[2] & 0xFF) + ", " + 
+                                        (this.groupImage[3] & 0xFF));
+                                }
+                            } else {
+                                this.groupImage = null;
+                                System.out.println("❌ JSON Array is empty, setting groupImage to null");
+                            }
+                        } else {
+                            this.groupImage = null;
+                            System.out.println("❌ groupImage is not a JSONArray or is null");
+                        }
+                    } catch (Exception e) {
+                        System.out.println("❌ Error parsing groupImage from JSON: " + e.getMessage());
+                        e.printStackTrace();
+                        this.groupImage = null;
+                    }
+                } else {
+                    this.groupImage = null;
+                    System.out.println("❌ groupImage not found in JSON data");
+                }
                 
                 // Parse createdBy
                 if ((Boolean) hasMethod.invoke(jsonData, "createdBy") && !(Boolean) isNullMethod.invoke(jsonData, "createdBy")) {
