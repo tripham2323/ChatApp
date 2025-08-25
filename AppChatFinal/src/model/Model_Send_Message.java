@@ -102,9 +102,17 @@ public class Model_Send_Message {
             json.put("fromUserID", fromUserID);
             json.put("toUserID", toUserID);
             if(messageType ==  MessageType.FILE||messageType == MessageType.IMAGE){
-                json.put("text", file.getFileExtensions());
+                if (file != null) {
+                    json.put("text", file.getFileExtensions());
+                } else {
+                    json.put("text", ""); // Default empty text if file is null
+                }
             }else if(messageType == MessageType.AVATAR){
-                json.put("text", file.getFileName());
+                if (file != null) {
+                    json.put("text", file.getFileName());
+                } else {
+                    json.put("text", ""); // Default empty text if file is null
+                }
             }
             else{
                 json.put("text", text);

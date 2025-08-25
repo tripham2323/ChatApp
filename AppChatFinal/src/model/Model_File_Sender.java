@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.text.DecimalFormat;
+import org.json.JSONObject;
 import service.Service;
 
 /**
@@ -49,20 +50,49 @@ public class Model_File_Sender {
     }    public void initSend() throws IOException {
         System.out.println("*** FILE_SENDER: initSend() called ***");
         System.out.println("Message: " + message.getText());
-        socket.emit("send_to_user", message.toJSONObject(), new Ack() {
+        System.out.println("Message Type: " + message.getMessageType());
+        System.out.println("From User: " + message.getFromUserID());
+        System.out.println("To User: " + message.getToUserID());
+        System.out.println("File extensions: " + fileExtensions);
+        
+        // Ensure the message has this file sender set
+        if (message.getFile() == null) {
+            System.out.println("*** WARNING: Message file is null, setting it ***");
+            message.setFile(this);
+        }
+        
+        JSONObject messageJson = message.toJSONObject();
+        System.out.println("*** MESSAGE JSON: " + messageJson.toString() + " ***");
+        
+        socket.emit("send_to_user", messageJson, new Ack() {
             @Override
             public void call(Object... os) {
                 System.out.println("*** FILE_SENDER: initSend callback received ***");
                 System.out.println("Callback args length: " + os.length);
                 if (os.length > 0){
-                   System.out.println("FileID received: " + os[0]);
-                   int fileID = (int) os[0]; //nhận id file từ server
-                    try {
-                        startSend(fileID);
-                    } catch (IOException e) {
-                        System.err.println("Error in startSend: " + e.getMessage());
-                        e.printStackTrace();
-                    }
+                   System.out.println("Response object type: " + os[0].getClass().getName());
+                   System.out.println("Response value: " + os[0]);
+                   
+                   // Handle both Boolean (error) and Integer (success) responses
+                   if (os[0] instanceof Boolean) {
+                       boolean success = (Boolean) os[0];
+                       if (success) {
+                           System.out.println("*** FILE_SENDER: Server returned success but no file ID ***");
+                       } else {
+                           System.err.println("*** FILE_SENDER: Server returned error! ***");
+                       }
+                   } else if (os[0] instanceof Integer) {
+                       try {
+                           int fileID = (Integer) os[0]; //nhận id file từ server
+                           System.out.println("*** FILE_SENDER: Received file ID: " + fileID + " ***");
+                           startSend(fileID);
+                       } catch (IOException e) {
+                           System.err.println("Error in startSend: " + e.getMessage());
+                           e.printStackTrace();
+                       }
+                   } else {
+                       System.err.println("*** FILE_SENDER: Unexpected response type: " + os[0].getClass().getName() + " ***");
+                   }
                 } else {
                     System.err.println("*** FILE_SENDER: No callback data received! ***");
                 }
@@ -104,34 +134,40 @@ public class Model_File_Sender {
             public void call(Object... os) {
                 System.out.println("*** FILE_SENDER: send_file callback received ***");
                 System.out.println("Callback args length: " + os.length);
-                if(os.length > 0){
-                    boolean act = (boolean) os[0];
-                    System.out.println("Server response: " + act);
-                    if (act) {
-                        try {
-                            if(!data.isFinish()){
-                                 System.out.println("*** FILE_SENDER: Continuing to send next chunk ***");
-                                 if(event != null){
-                                    event.onSending(getPercentage());
-                                 }
-                               sendingFile();   
-                            }else{
-                              //send file finish
-                               System.out.println("*** FILE_SENDER: File sending completed ***");
-                               Service.getInstance().fileSendFinish(Model_File_Sender.this);
-                                if(event != null){
-                                    event.onFinish();
-                                 }
+                
+                try {
+                    if(os.length > 0){
+                        boolean act = (boolean) os[0];
+                        System.out.println("Server response: " + act);
+                        if (act) {
+                            try {
+                                if(!data.isFinish()){
+                                     System.out.println("*** FILE_SENDER: Continuing to send next chunk ***");
+                                     if(event != null){
+                                        event.onSending(getPercentage());
+                                     }
+                                   sendingFile();   
+                                }else{
+                                  //send file finish
+                                   System.out.println("*** FILE_SENDER: File sending completed ***");
+                                   Service.getInstance().fileSendFinish(Model_File_Sender.this);
+                                    if(event != null){
+                                        event.onFinish();
+                                     }
+                                }
+                            } catch (IOException e) {
+                               System.err.println("Error in sendingFile callback: " + e.getMessage());
+                               e.printStackTrace();
                             }
-                        } catch (IOException e) {
-                           System.err.println("Error in sendingFile callback: " + e.getMessage());
-                           e.printStackTrace();
+                        } else {
+                            System.err.println("*** FILE_SENDER: Server rejected the file chunk! ***");
                         }
                     } else {
-                        System.err.println("*** FILE_SENDER: Server rejected the file chunk! ***");
+                        System.err.println("*** FILE_SENDER: No callback data from send_file! ***");
                     }
-                } else {
-                    System.err.println("*** FILE_SENDER: No callback data from send_file! ***");
+                } catch (Exception e) {
+                    System.err.println("*** FILE_SENDER: Error in callback processing: " + e.getMessage());
+                    e.printStackTrace();
                 }
                }
         });

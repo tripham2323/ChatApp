@@ -72,6 +72,10 @@ public class Service {
                     fs.delete();
                 }
             }
+        } else {
+            // Create server_data directory if it doesn't exist
+            boolean created = f.mkdirs();
+            System.out.println("Created server_data directory: " + created);
         }
         
         
@@ -144,8 +148,9 @@ public class Service {
                 System.out.println("Message Data: " + messageData);
                 System.out.println("From UserID: " + messageData.get("fromUserID"));
                 System.out.println("To UserID: " + messageData.get("toUserID"));
-                System.out.println("Message Type: " + messageData.get("messageType"));
-                System.out.println("Message Text: " + messageData.get("text"));                System.out.println("Socket Client ID: " + socketClient.getSessionId());
+                System.out.println("Message Text: " + messageData.get("text"));
+                System.out.println("Socket Client ID: " + socketClient.getSessionId());
+                System.out.println("AckRequest available: " + (ar != null));
                 
                 // Convert Map to Model_Send_Message
                 try {
@@ -1082,11 +1087,23 @@ public class Service {
     }
     
     private void sendToClient(Model_Send_Message data, AckRequest ar){
+        System.out.println("=== sendToClient CALLED ===");
+        System.out.println("Message Type: " + data.getMessageType());
+        System.out.println("IMAGE type value: " + MessageType.IMAGE.getValue());
+        System.out.println("FILE type value: " + MessageType.FILE.getValue());
+        
         if(data.getMessageType() == MessageType.IMAGE.getValue()||data.getMessageType() == MessageType.FILE.getValue()) {
+            System.out.println("=== Processing IMAGE/FILE message ===");
             try {
+                System.out.println("=== About to add file receiver ===");
                 Model_File file = serviceFile.addFileReceiver(data.getText()); //put lên csdl sql và trả về 1 instance model_file với id file và phần đuôi mở rộng
+                System.out.println("=== File added to DB with ID: " + file.getFileID() + " ===");
+                System.out.println("=== About to init file ===");
                 serviceFile.initFile(file, data);// tạo file mới null
+                System.out.println("=== File initialized successfully ===");
+                System.out.println("=== About to send AckData with file ID: " + file.getFileID() + " ===");
                 ar.sendAckData(file.getFileID());//trả về id file cho client
+                System.out.println("=== AckData sent successfully! ===");
                 
                  if(data.getMessageType() == MessageType.IMAGE.getValue()){
                           for(Model_Client c:listClient){
@@ -1100,7 +1117,19 @@ public class Service {
                }
            
             } catch (IOException | SQLException e) {
+                System.err.println("=== ERROR in IMAGE/FILE processing ===");
+                System.err.println("Error type: " + e.getClass().getName());
+                System.err.println("Error message: " + e.getMessage());
                 e.printStackTrace();
+                System.err.println("=== Sending error response to client ===");
+                ar.sendAckData(false); // Send error response
+            } catch (Exception e) {
+                System.err.println("=== UNEXPECTED ERROR in IMAGE/FILE processing ===");
+                System.err.println("Error type: " + e.getClass().getName());
+                System.err.println("Error message: " + e.getMessage());
+                e.printStackTrace();
+                System.err.println("=== Sending error response to client ===");
+                ar.sendAckData(false); // Send error response
             }
         
         }else if(data.getMessageType() == MessageType.AVATAR.getValue()){

@@ -376,6 +376,15 @@ public class Service {
     }
     
     public Model_File_Sender addFile(File file, Model_Send_Message message) throws IOException {
+        // Check if client is connected
+        if (client == null || !client.connected()) {
+            System.err.println("*** CLIENT NOT CONNECTED! Cannot send file ***");
+            throw new IOException("Client is not connected to server");
+        }
+        
+        System.out.println("*** FILE_SENDER: Adding file: " + file.getName() + " ***");
+        System.out.println("*** CLIENT CONNECTION STATUS: " + client.connected() + " ***");
+        
         Model_File_Sender data = new Model_File_Sender(file, client, message);
         message.setFile(data);
         fileSender.add(data);
@@ -1574,5 +1583,10 @@ public class Service {
     public interface LeaveGroupCallback {
         void onSuccess();
         void onError(String error);
+    }
+    
+    // Method to check connection status
+    public boolean isConnected() {
+        return client != null && client.connected();
     }
 }
